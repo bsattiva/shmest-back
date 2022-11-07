@@ -35,7 +35,7 @@ private static final Logger LOGGER = Logger.getLogger(CommandRunner.class);
             IOUtils
                     .copy(new ByteArrayInputStream(responseBuilder.toString().getBytes()),
                             writer, StandardCharsets.UTF_8);
-            result = writer.toString();
+            result = "SUCCESS: " + writer.toString();
 
         } catch (InterruptedException | IOException e) {
             LOGGER.error(e);
