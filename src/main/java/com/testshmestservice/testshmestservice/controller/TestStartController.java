@@ -280,7 +280,8 @@ public class TestStartController {
                 System.out.print(output);
                 LOGGER.info(output);
             } catch (IOException e) {
-
+                System.out.println(e.getMessage());
+                e.printStackTrace();
                 LOGGER.error(e.getMessage());
             }
 
