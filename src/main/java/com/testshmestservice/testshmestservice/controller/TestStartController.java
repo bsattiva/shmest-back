@@ -282,7 +282,7 @@ public class TestStartController {
                 LOGGER.info(output);
             } catch (IOException e) {
                 System.out.println(e.getMessage());
-                result.put("output", e.getMessage());
+                result.put("error", e.getMessage());
                 e.printStackTrace();
                 LOGGER.error(e.getMessage());
             }
