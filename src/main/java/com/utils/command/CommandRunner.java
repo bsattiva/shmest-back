@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class CommandRunner {
@@ -19,6 +20,7 @@ private static final Logger LOGGER = Logger.getLogger(CommandRunner.class);
 
 
     public static String runCommand() throws IOException {
+
         var builder = new ProcessBuilder(CommandHelper.getCommand(Helper.getCurrentDir()));
         var result = "";
         builder.redirectErrorStream(true);
@@ -35,7 +37,7 @@ private static final Logger LOGGER = Logger.getLogger(CommandRunner.class);
             IOUtils
                     .copy(new ByteArrayInputStream(responseBuilder.toString().getBytes()),
                             writer, StandardCharsets.UTF_8);
-            result = "SUCCESS: " + writer.toString();
+            result = "SUCCESS: " + String.join(" ", List.of(CommandHelper.getCommand(Helper.getCurrentDir()))) + writer.toString();
 
         } catch (InterruptedException | IOException e) {
             LOGGER.error(e);
