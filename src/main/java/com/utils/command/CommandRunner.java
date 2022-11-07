@@ -39,7 +39,7 @@ private static final Logger LOGGER = Logger.getLogger(CommandRunner.class);
 
         } catch (InterruptedException | IOException e) {
             LOGGER.error(e);
-            result = e.getMessage();
+            result = "ERROR: " + e.getMessage();
             Thread.currentThread().interrupt();
         }
         return result;
