@@ -277,10 +277,12 @@ public class TestStartController {
             result.put("configSaved", configSaved);
             try {
                 var output = CommandRunner.runCommand();
+                result.put("output", output);
                 System.out.print(output);
                 LOGGER.info(output);
             } catch (IOException e) {
                 System.out.println(e.getMessage());
+                result.put("output", e.getMessage());
                 e.printStackTrace();
                 LOGGER.error(e.getMessage());
             }
