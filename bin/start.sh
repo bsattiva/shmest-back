@@ -1,3 +1,4 @@
+echo "starting ..."
 cd ..
 # shellcheck disable=SC2164
 cd TestCube
