@@ -277,6 +277,7 @@ public class TestStartController {
             result.put("configSaved", configSaved);
             try {
                 var output = CommandRunner.runCommand();
+                System.out.print(output);
                 LOGGER.info(output);
             } catch (IOException e) {
 

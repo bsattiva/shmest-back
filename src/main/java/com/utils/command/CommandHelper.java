@@ -10,7 +10,7 @@ public class CommandHelper {
         if (System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")) {
             command = new String[]{"powershell", path + "/bin/start.bat -c "};
         } else {
-            command = new String[]{"/bin/bash", "-c",  path + "/bin/start.bat -c "};
+            command = new String[]{"/bin/bash", path + "/bin/start.bat -c "};
         }
         return command;
     }
