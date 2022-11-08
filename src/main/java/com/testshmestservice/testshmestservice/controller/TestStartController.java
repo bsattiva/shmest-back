@@ -277,6 +277,8 @@ public class TestStartController {
             map.add("runid=" + runId);
             map.add("scenarioid=" + scenarioId);
             map.add("backend.url=http://localhost:8082/");
+            map.add("hostname=109.228.57.213");
+            map.add("port=4444");
             var configSaved = TestHelper.saveConfig(map, TestHelper.getSameLevelProject(TEST_PROJECT) + CONFIG);
             result.put("configSaved", configSaved);
             try {
