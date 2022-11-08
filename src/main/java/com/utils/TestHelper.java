@@ -117,6 +117,7 @@ public class TestHelper {
             FileUtils.writeLines(new File(path), map, false);
             ok = true;
         } catch (IOException e) {
+            e.printStackTrace();
             LOGGER.error(e.getMessage());
         }
         return ok;
