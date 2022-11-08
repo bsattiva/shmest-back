@@ -256,7 +256,8 @@ public class TestStartController {
         var token = object.getString(TOKEN);
         var project = QueryHelper.getProject(token);
         var url = object.getString("baseUrl");
-
+        System.out.println("PROJECT: " + project);
+        
         if (Helper.isThing(project)) {
             object.put("project", project);
             object.put("projectId", project);
