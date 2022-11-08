@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -44,11 +45,18 @@ public class TestHelper {
     public static String getSameLevelProject(final String name) {
 
         var parts = Helper.getCurrentDir().replace("\\", "/").split("/");
-        return Arrays.stream(parts)
+        var path =  Arrays.stream(parts)
                 .filter(part -> !Helper.getCurrentDir().endsWith(part)).collect(Collectors.joining("/"))
                 +
                 "/"
                 + name;
+        if ((System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows"))) {
+            return path;
+        } else if (path.startsWith("/")) {
+            return path;
+        } else {
+            return "/" + path;
+        }
     }
 
 
