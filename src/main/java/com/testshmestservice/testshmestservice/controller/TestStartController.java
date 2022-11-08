@@ -91,15 +91,17 @@ public class TestStartController {
                 .replace("}\"]", "}]")
                 .replace("\\", "")
                 .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"")) : new JSONObject();
-        var page = object.getJSONObject("page");
-        var keys = page.keys();
-        var arr = new JSONArray();
-        while (keys.hasNext()) {
-            var key = keys.next();
-            var obj = page.getJSONObject(key);
-            arr.put(obj);
+        if (object.has("page")) {
+            var page = object.getJSONObject("page");
+            var keys = page.keys();
+            var arr = new JSONArray();
+            while (keys.hasNext()) {
+                var key = keys.next();
+                var obj = page.getJSONObject(key);
+                arr.put(obj);
+            }
+            object.put("page", arr);
         }
-        object.put("page", arr);
         return object.toString();
     }
 
