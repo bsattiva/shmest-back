@@ -83,13 +83,14 @@ public class TestStartController {
                 .replaceFirst(QUESTION_MASK, name);
         var data = QueryHelper.getData(query, "pull-table");
 
-        var object =  new JSONObject(data.getJSONArray("message").getJSONObject(0).toString()
+        var object = (data.has("message") && data.getJSONArray("message").length() > 0)
+                ? new JSONObject(data.getJSONArray("message").getJSONObject(0).toString()
                 .replace(":\"{", ":{")
                 .replace("}\",", "},")
                 .replace("[\"{","[{")
                 .replace("}\"]", "}]")
                 .replace("\\", "")
-                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\""));
+                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"")) : new JSONObject();
         var page = object.getJSONObject("page");
         var keys = page.keys();
         var arr = new JSONArray();
