@@ -216,6 +216,7 @@ public class TestStartController {
         var object = RequestHelper.getRequestBody(request);
         var secret = object.getString("secret");
         var result = new JSONObject("{\"message\":{\"status\":\"failure\"}}");
+        System.out.println("SAVING STEP");
         if (secret.equals(SECRET)) {
             var statObject = new JSONObject();
             statObject.put("status",  QueryHelper.saveRunStep(object));

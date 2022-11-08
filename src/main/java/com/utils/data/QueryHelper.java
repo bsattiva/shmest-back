@@ -52,8 +52,8 @@ public class QueryHelper {
     public static String getStepStatus(final String runId, final String stepId, final String projectId) {
         final String query = "select r.status from shmest.run r join shmest.dashboard d on r.runid=d.runid where r.runid='?' and r.stepid='?' and d.projectid='?'";
         var arguments = new String[] {runId, stepId, projectId};
-        System.out.println("CHECKING STATUS WITH QUERY");
-        System.out.println(Helper.completeString(QUESTION_MASK, query, arguments));
+//        System.out.println("CHECKING STATUS WITH QUERY");
+//        System.out.println(Helper.completeString(QUESTION_MASK, query, arguments));
         var result = getData(Helper.completeString(QUESTION_MASK, query, arguments), PULL_STRING);
         return (result.has(MESSAGE))
                 ? result.getString(MESSAGE) : "-1";
