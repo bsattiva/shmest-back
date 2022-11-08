@@ -114,6 +114,7 @@ public class TestHelper {
     public static boolean saveConfig(final List<String> map, final String path) {
         var ok = false;
         try {
+            System.out.println(path);
             FileUtils.writeLines(new File(path), map, false);
             ok = true;
         } catch (IOException e) {
