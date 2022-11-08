@@ -257,7 +257,7 @@ public class TestStartController {
         var project = QueryHelper.getProject(token);
         var url = object.getString("baseUrl");
         System.out.println("PROJECT: " + project);
-        
+
         if (Helper.isThing(project)) {
             object.put("project", project);
             object.put("projectId", project);
@@ -281,6 +281,7 @@ public class TestStartController {
             map.add("hostname=109.228.57.213");
             map.add("port=4444");
             var configSaved = TestHelper.saveConfig(map, TestHelper.getSameLevelProject(TEST_PROJECT) + CONFIG);
+            System.out.println("CONFIG SAVED: " + configSaved);
             result.put("configSaved", configSaved);
             try {
                 var output = CommandRunner.runCommand();
