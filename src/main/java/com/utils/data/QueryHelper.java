@@ -2,9 +2,13 @@ package com.utils.data;
 
 
 import com.utils.Helper;
+import jdk.jfr.StackTrace;
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
 import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 public class QueryHelper {
@@ -13,6 +17,7 @@ public class QueryHelper {
     private static final String MESSAGE = "message";
     private static final String STATUS = "status";
     private static final String PULL_STRING = "pull-string";
+    private static final String PULL_TABLE = "pull-table";
     private static final String EXECUTE = "execute";
     private static final String SUCCESS = "success";
     private final static Logger LOGGER = Logger.getLogger(QueryHelper.class);
@@ -36,6 +41,21 @@ public class QueryHelper {
         return HttpClient.sendHttpsPost(object,url);
     }
 
+    public static JSONObject getLogs(final int records) {
+        var query = "select time,message,area,id from shmest.log order by id desc limit " + records;
+        return getData(query, PULL_TABLE);
+    }
+
+    public static void logEntry(final String message, final String project, final String area) {
+        var query = "insert into shmest.log (time, project, area, message) values(now(),'?','?','?')";
+        getData(Helper.completeString(QUESTION_MASK, query,new String[]{project, area, message}), EXECUTE);
+    }
+
+    public static void logEntry(final String message, final String project, final String area, final StackTraceElement[] trace) {
+        var query = "insert into shmest.log (time, project, area, message) values(now(),'?','?','?')";
+        var error = message + " " + Stream.of(trace).map(StackTraceElement::toString).collect(Collectors.joining());
+        getData(Helper.completeString(QUESTION_MASK, query,new String[]{project, area, error}), EXECUTE);
+    }
 
     public static JSONObject getProfile(final String token){
         JSONObject result = Helper.getFailedObject();

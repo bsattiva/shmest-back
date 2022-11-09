@@ -1,5 +1,6 @@
 package com.testshmestservice.testshmestservice.controller;
 
+import com.enums.Area;
 import com.utils.FileHelper;
 import com.utils.Helper;
 import com.utils.HtmlHelper;
@@ -228,6 +229,21 @@ public class TestStartController {
         return result.toString();
     }
 
+    @GetMapping("/log")
+    String getLogs(final HttpServletRequest request, final HttpServletResponse response) {
+        var project = getProject(request);
+        var records = (Helper.isThing(request.getParameter("records")))
+                ? Integer.parseInt(request.getParameter("records")) : 0;
+        var result = new JSONObject();
+        if (Helper.isThing(project)) {
+            result = QueryHelper.getLogs(records);
+        } else {
+            QueryHelper.logEntry("UNAUTHORIZED ACCESS TO LOGS ATTEMPTED", "", Area.QUERY_HELPER.label);
+            response.setStatus(401);
+        }
+        return result.toString();
+    }
+
     @GetMapping("/step-stat")
     String getStepStat(final HttpServletRequest request, final HttpServletResponse response) {
         var project = getProject(request);
@@ -240,6 +256,7 @@ public class TestStartController {
         }
         return result.toString();
     }
+
 
 
     @PostMapping("/start")
@@ -256,7 +273,7 @@ public class TestStartController {
         var token = object.getString(TOKEN);
         var project = QueryHelper.getProject(token);
         var url = object.getString("baseUrl");
-        System.out.println("PROJECT: " + project);
+        QueryHelper.logEntry("PROJECT: " + project, project, Area.STARTER.label);
 
         if (Helper.isThing(project)) {
             object.put("project", project);
@@ -281,21 +298,22 @@ public class TestStartController {
             map.add("hostname=109.228.57.213");
             map.add("port=4444");
             var configSaved = TestHelper.saveConfig(map, TestHelper.getSameLevelProject(TEST_PROJECT) + CONFIG);
-            System.out.println("CONFIG SAVED: " + configSaved);
+            QueryHelper.logEntry("CONFIG SAVED: " + configSaved, project, "starter");
             result.put("configSaved", configSaved);
             try {
                 var output = CommandRunner.runCommand();
                 result.put("output", output);
-                System.out.print(output);
+                QueryHelper.logEntry(output, project, Area.CUBE.label);
                 LOGGER.info(output);
             } catch (IOException e) {
-                System.out.println(e.getMessage());
+                QueryHelper.logEntry(e.getMessage(), project, Area.STARTER.label, e.getStackTrace());
                 result.put("error", e.getMessage());
                 e.printStackTrace();
                 LOGGER.error(e.getMessage());
             }
 
         } else {
+            QueryHelper.logEntry("unauthorized request", project, Area.STARTER.label);
             response.setStatus(401);
         }
 
