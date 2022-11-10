@@ -76,34 +76,41 @@ public class TestStartController {
 
     @GetMapping("/single-page")
     String getPage(final HttpServletRequest request, final HttpServletResponse response) {
-        var token = request.getParameter(TOKEN).replace(" ", "+");
+
         var project = getProject(request);
         var name = request.getParameter("id");
-        var query = "select page,url from shmest.pages where projectid='?' and pagename='?'"
-                .replaceFirst(QUESTION_MASK, project)
-                .replaceFirst(QUESTION_MASK, name);
-        var data = QueryHelper.getData(query, "pull-table");
-
-        var object = (data.has("message") && data.getJSONArray("message").length() > 0)
-                ? new JSONObject(data.getJSONArray("message").getJSONObject(0).toString()
-                .replace(":\"{", ":{")
-                .replace("}\",", "},")
-                .replace("[\"{","[{")
-                .replace("}\"]", "}]")
-                .replace("\\", "")
-                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"")) : new JSONObject();
-        if (object.has("page")) {
-            var page = object.getJSONObject("page");
-            var keys = page.keys();
-            var arr = new JSONArray();
-            while (keys.hasNext()) {
-                var key = keys.next();
-                var obj = page.getJSONObject(key);
-                arr.put(obj);
-            }
-            object.put("page", arr);
-        }
-        return object.toString();
+//        var query = "select page,url from shmest.pages where projectid='?' and pagename='?'"
+//                .replaceFirst(QUESTION_MASK, project)
+//                .replaceFirst(QUESTION_MASK, name);
+//        var data = QueryHelper.getData(query, "pull-table");
+//
+//        var string = data.getJSONArray("message").getJSONObject(0).toString()
+//                .replace(":\"{", ":{")
+//                .replace("}\",", "},")
+//                .replace("[\"{","[{")
+//                .replace("}\"]", "}]")
+//                .replace("\\", "")
+//                .replace("u00027", "'")
+//                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"");
+//        System.out.println("SINGLE");
+//        System.out.println(string);
+//        var object = (data.has("message") && data.getJSONArray("message").length() > 0)
+//                ? new JSONObject(string)
+//                : new JSONObject()
+//                ;
+//        if (object.has("page")) {
+//            var page = object.getJSONObject("page");
+//            var keys = page.keys();
+//            var arr = new JSONArray();
+//            while (keys.hasNext()) {
+//                var key = keys.next();
+//                var obj = page.getJSONObject(key);
+//                arr.put(obj);
+//            }
+//            object.put("page", arr);
+//        }
+        return QueryHelper.getSinglePage(project,name).toString();
+      //  return object.toString();
     }
 
 
@@ -113,27 +120,37 @@ public class TestStartController {
         var project = getProject(request);
         var query = "select pagename,page,url from shmest.pages where projectid='?'".replace(MASK, project);
         var data = QueryHelper.getData(query, "pull-table");
-
-        var array =  new JSONArray(data.getJSONArray("message").toString()
+        var escapedData = data.getJSONArray("message").toString()
                 .replace(":\"{", ":{")
                 .replace("}\",", "},")
                 .replace("[\"{","[{")
                 .replace("}\"]", "}]")
                 .replace("\\", "")
-                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\""));
+                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"")
+                .replace("u00027", "'")
+                .replace("\"[{", "[{")
+                .replace("}]\"", "}]")
+;
+        System.out.println(escapedData);
+        var array =  new JSONArray(escapedData);
         for (var i = 0; i < array.length(); i++) {
             var object = array.getJSONObject(i);
             var arr = new JSONArray();
-            var keys = object.getJSONObject("page").keys();
-            while (keys.hasNext()) {
+            if (object.get("page") instanceof JSONObject) {
+                var keys = object.getJSONObject("page").keys();
+                while (keys.hasNext()) {
                     var key = keys.next();
                     var obj = object.getJSONObject("page").getJSONObject(key);
                     arr.put(obj);
+                }
+
+                object.remove("page");
+                System.out.print(object.toString(5));
+                object.put("page", arr);
+
             }
 
-            object.remove("page");
-            System.out.print(object.toString(5));
-            object.put("page", arr);
+
         }
 
         return array.toString();
@@ -194,6 +211,24 @@ public class TestStartController {
 
     }
 
+    @PostMapping("/post-page")
+    @ResponseBody
+    String postPage(final HttpServletRequest request, final HttpServletResponse response) {
+        var result = new JSONObject();
+        var object = RequestHelper.getRequestBody(request);
+        var token = object.getString(TOKEN);
+        var project = QueryHelper.getProject(token);
+        if (Helper.isThing(project)) {
+            var page = object.getJSONObject("pageobject");
+            page.put("project", project);
+            var persisted = QueryHelper.persistSavedPage(page);
+            if (persisted.getString("message").equals("success")) {
+                result = QueryHelper.getSinglePage(project, page.getString("pagename"));
+            }
+        }
+
+        return result.toString();
+    }
 
     @PostMapping("/html")
     @ResponseBody

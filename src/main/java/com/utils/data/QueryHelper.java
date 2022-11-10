@@ -4,6 +4,7 @@ package com.utils.data;
 import com.utils.Helper;
 import jdk.jfr.StackTrace;
 import org.apache.log4j.Logger;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.HashMap;
 import java.util.List;
@@ -157,6 +158,79 @@ public class QueryHelper {
     }
 
 
+
+    public static JSONObject persistSavedPage(final JSONObject page) {
+        final String pageName = page.getString("pagename");
+        final JSONArray pageObject = page.getJSONArray("page");
+        var pageString = pageObject.toString()
+//                .trim()
+//                .replaceFirst("^\\[", "{")
+//                .replaceFirst("\\]$","}").replace("'", "\\\\'")
+                ;
+
+        final String project = page.getString("project");
+        final String url = page.getString("url");
+        var status = new JSONObject();
+        final String checkQuery = "select pagename from shmest.pages where pagename='"
+                + pageName
+                + "' and projectid='" + project + "'";
+        if (getData(checkQuery, PULL_STRING).length() == 0) {
+            final String query = "insert into shmest.pages(pagename,projectid,page,url) values('?','?','?','?')"
+                    .replaceFirst(QUESTION_MASK, pageName)
+                    .replaceFirst(QUESTION_MASK, project)
+                    .replaceFirst(QUESTION_MASK, pageString.replace("'", "\\'"))
+                    .replaceFirst(QUESTION_MASK, url);
+
+            JSONObject object = new JSONObject("{}");
+            object.put("query", query);
+            object.put("type", EXECUTE);
+            object.put("secret",SECRET);
+            status = getData(query, EXECUTE);
+        } else {
+            var pageStringEscaped = pageString.replace("'", "\0027");
+            final String updateQuery = "update shmest.pages set page='?',url='?' where projectid='?' and pagename='?'"
+                    .replaceFirst(QUESTION_MASK, pageStringEscaped)
+                    .replaceFirst(QUESTION_MASK, url)
+                    .replaceFirst(QUESTION_MASK, project)
+                    .replaceFirst(QUESTION_MASK, pageName);
+            status = getData(updateQuery, EXECUTE);
+
+        }
+        return status;
+    }
+
+    public static JSONObject getSinglePage(final String project, final String name) {
+        var query = "select page,url from shmest.pages where projectid='?' and pagename='?'"
+                .replaceFirst(QUESTION_MASK, project)
+                .replaceFirst(QUESTION_MASK, name);
+        var data = QueryHelper.getData(query, "pull-table");
+        var string = data.getJSONArray("message").getJSONObject(0).toString()
+                .replace(":\"{", ":{")
+                .replace("}\",", "},")
+                .replace("[\"{","[{")
+                .replace("}\"]", "}]")
+                .replace("\\", "")
+                .replace("\"[{", "[{")
+                .replace("}]\"", "}]")
+                .replace("u00027", "'")
+                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"");
+
+        var object = (data.has("message") && data.getJSONArray("message").length() > 0)
+                ? new JSONObject(string) : new JSONObject();
+        if (object.has("page") && object.get("page") instanceof JSONObject) {
+            var page = object.getJSONObject("page");
+            var keys = page.keys();
+            var arr = new JSONArray();
+            while (keys.hasNext()) {
+                var key = keys.next();
+                var obj = page.getJSONObject(key);
+                arr.put(obj);
+            }
+            object.put("page", arr);
+        }
+        return object;
+
+    }
 
     public static JSONObject persistPage(final JSONObject page) {
         final String pageName = page.getString("pageName");
