@@ -327,7 +327,7 @@ public class TestStartController {
                     sendableOut = sendableOut.substring(0, sendableOut.indexOf("[INFO] BUILD"));
 
                 }
-                result.put("output", output);
+                result.put("output", sendableOut);
                 QueryHelper.logEntry(sendableOut, project, Area.CUBE.label);
                 LOGGER.info(output);
             } catch (IOException e) {
