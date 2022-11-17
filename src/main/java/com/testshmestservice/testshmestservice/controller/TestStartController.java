@@ -321,21 +321,22 @@ public class TestStartController {
                 var output = CommandRunner.runCommand();
                 System.out.print("RAW OUTPUT: " + output);
                 TestHelper.sleep(2000);
-                var sendableOut = output;
-                System.out.println();
-                System.out.println(output.indexOf("OpenJDK"));
-                System.out.println(output.indexOf("Skipped: "));
-
-                if (output.contains("Skipped: ") && output.contains("OpenJDK")) {
-
-                    sendableOut = output
-                            .substring(output.indexOf("OpenJDK"));
-                    sendableOut = sendableOut.substring(0, sendableOut.indexOf("Skipped: "));
-
-                } else {
-                    sendableOut = "CORRUPTED: " + output;
-
-                }
+                var sendableOut = RequestHelper.cleanOutput(output);
+//                var sendableOut = output;
+//                System.out.println();
+//                System.out.println(output.indexOf("OpenJDK"));
+//                System.out.println(output.indexOf("Skipped: "));
+//
+//                if (output.contains("Skipped: ") && output.contains("OpenJDK")) {
+//
+//                    sendableOut = output
+//                            .substring(output.indexOf("OpenJDK"));
+//                    sendableOut = sendableOut.substring(0, sendableOut.indexOf("Skipped: "));
+//
+//                } else {
+//                    sendableOut = "CORRUPTED: " + output;
+//
+//                }
                 result.put("output", sendableOut);
                 QueryHelper.logEntry(sendableOut, project, Area.CUBE.label);
                 LOGGER.info(output);
