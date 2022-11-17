@@ -60,13 +60,14 @@ public class QueryHelper {
 
     public static void selfLogEntry(final String message, final String project) {
         var query = "insert into shmest.log (time, project, area, message) values(now(),'?','?','?')";
-        var data = getData(Helper.completeString(QUESTION_MASK,
+        getData(Helper.completeString(QUESTION_MASK,
                 query,new String[]{project, Area.LOGGING.label, message}), EXECUTE);
 
     }
 
     public static void logEntry(final String message, final String project, final String area) {
         var query = "insert into shmest.log (time, project, area, message) values(now(),'?','?','?')";
+        System.out.println(query);
         var data = getData(Helper.completeString(QUESTION_MASK, query,new String[]{project, area, message}), EXECUTE);
         selfLogEntry(data.toString(5), project);
     }
