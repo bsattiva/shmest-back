@@ -1,7 +1,11 @@
 package com.utils.data;
 
 
+import com.enums.Area;
+import com.utils.FileHelper;
 import com.utils.Helper;
+import com.utils.RequestHelper;
+import com.utils.TestHelper;
 import jdk.jfr.StackTrace;
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
@@ -204,31 +208,40 @@ public class QueryHelper {
                 .replaceFirst(QUESTION_MASK, project)
                 .replaceFirst(QUESTION_MASK, name);
         var data = QueryHelper.getData(query, "pull-table");
-        var string = data.getJSONArray("message").getJSONObject(0).toString()
-                .replace(":\"{", ":{")
-                .replace("}\",", "},")
-                .replace("[\"{","[{")
-                .replace("}\"]", "}]")
-                .replace("\\", "")
-                .replace("\"[{", "[{")
-                .replace("}]\"", "}]")
-                .replace("u00027", "'")
-                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"");
 
-        var object = (data.has("message") && data.getJSONArray("message").length() > 0)
-                ? new JSONObject(string) : new JSONObject();
-        if (object.has("page") && object.get("page") instanceof JSONObject) {
-            var page = object.getJSONObject("page");
-            var keys = page.keys();
-            var arr = new JSONArray();
-            while (keys.hasNext()) {
-                var key = keys.next();
-                var obj = page.getJSONObject(key);
-                arr.put(obj);
+        logEntry("GOT PAGE OBJECT: " + data.toString(5), project, Area.QUERY_HELPER.label);
+        if (data.length() > 0 && data.has("message") && data.getJSONArray("message").length() > 0) {
+            var string = data.getJSONArray("message").getJSONObject(0).toString()
+                    .replace(":\"{", ":{")
+                    .replace("}\",", "},")
+                    .replace("[\"{","[{")
+                    .replace("}\"]", "}]")
+                    .replace("\\", "")
+                    .replace("\"[{", "[{")
+                    .replace("}]\"", "}]")
+                    .replace("u00027", "'")
+                    .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"");
+
+            var object = (data.has("message") && data.getJSONArray("message").length() > 0)
+                    ? new JSONObject(string) : new JSONObject();
+            if (object.has("page") && object.get("page") instanceof JSONObject) {
+                var page = object.getJSONObject("page");
+                var keys = page.keys();
+                var arr = new JSONArray();
+                while (keys.hasNext()) {
+                    var key = keys.next();
+                    var obj = page.getJSONObject(key);
+                    arr.put(obj);
+                }
+                object.put("page", arr);
             }
-            object.put("page", arr);
+            return object;
+
+        } else {
+            return new JSONObject();
+
         }
-        return object;
+
 
     }
 
