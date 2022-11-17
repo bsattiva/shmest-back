@@ -320,6 +320,7 @@ public class TestStartController {
             try {
                 var output = CommandRunner.runCommand();
                 System.out.print("RAW OUTPUT: " + output);
+                TestHelper.sleep(2000);
                 var sendableOut = output;
                 if (output.contains("Skipped: ") && output.contains("T E S T S[INFO]")) {
 

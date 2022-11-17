@@ -90,6 +90,15 @@ public class TestHelper {
         return result;
     }
 
+    public static void sleep(final int mills) {
+        try {
+            Thread.sleep(mills);
+        } catch (InterruptedException e) {
+            LOGGER.info(e.getMessage());
+        }
+
+    }
+
     public static boolean saveTest(final JSONObject object, final String path) {
         var ok = false;
         try {
