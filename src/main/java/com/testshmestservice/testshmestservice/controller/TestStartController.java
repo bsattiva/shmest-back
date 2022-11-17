@@ -322,13 +322,14 @@ public class TestStartController {
                 System.out.print("RAW OUTPUT: " + output);
                 TestHelper.sleep(2000);
                 var sendableOut = output;
-                System.out.println(output.indexOf("T E S T S[INFO]"));
+                System.out.println();
+                System.out.println(output.indexOf("OpenJDK"));
                 System.out.println(output.indexOf("Skipped: "));
 
-                if (output.contains("Skipped: ") && output.contains("T E S T S[INFO]")) {
+                if (output.contains("Skipped: ") && output.contains("OpenJDK")) {
 
                     sendableOut = output
-                            .substring(output.indexOf("T E S T S[INFO]"));
+                            .substring(output.indexOf("OpenJDK"));
                     sendableOut = sendableOut.substring(0, sendableOut.indexOf("Skipped: "));
 
                 } else {
