@@ -326,6 +326,9 @@ public class TestStartController {
                             .substring(output.indexOf("T E S T S[INFO]"));
                     sendableOut = sendableOut.substring(0, sendableOut.indexOf("[INFO] BUILD"));
 
+                } else {
+                    sendableOut = "CORRUPTED: " + output;
+
                 }
                 result.put("output", sendableOut);
                 QueryHelper.logEntry(sendableOut, project, Area.CUBE.label);
