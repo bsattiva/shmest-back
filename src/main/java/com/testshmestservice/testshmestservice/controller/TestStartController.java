@@ -321,11 +321,11 @@ public class TestStartController {
                 var output = CommandRunner.runCommand();
                 System.out.print("RAW OUTPUT: " + output);
                 var sendableOut = output;
-                if (output.contains("[INFO] BUILD") && output.contains("T E S T S[INFO]")) {
+                if (output.contains("Skipped: ") && output.contains("T E S T S[INFO]")) {
 
                     sendableOut = output
                             .substring(output.indexOf("T E S T S[INFO]"));
-                    sendableOut = sendableOut.substring(0, sendableOut.indexOf("[INFO] BUILD"));
+                    sendableOut = sendableOut.substring(0, sendableOut.indexOf("Skipped: "));
 
                 } else {
                     sendableOut = "CORRUPTED: " + output;
