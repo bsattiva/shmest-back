@@ -322,6 +322,9 @@ public class TestStartController {
                 System.out.print("RAW OUTPUT: " + output);
                 TestHelper.sleep(2000);
                 var sendableOut = output;
+                System.out.println(output.indexOf("T E S T S[INFO]"));
+                System.out.println(output.indexOf("Skipped: "));
+
                 if (output.contains("Skipped: ") && output.contains("T E S T S[INFO]")) {
 
                     sendableOut = output
