@@ -319,6 +319,7 @@ public class TestStartController {
             result.put("configSaved", configSaved);
             try {
                 var output = CommandRunner.runCommand();
+                System.out.print("RAW OUTPUT: " + output);
                 var sendableOut = output;
                 if (output.contains("[INFO] BUILD") && output.contains("T E S T S[INFO]")) {
 
