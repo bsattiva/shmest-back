@@ -15,7 +15,9 @@ public class RequestHelper {
                 .replace('─', blank)
                 .replace('┐', blank)
                 .replace('│', blank)
-                .replace('/', blank);
+                .replace('/', blank)
+                .replace('└', blank)
+                .replace('┘', blank);
         var sendableOut = output;
         System.out.println();
         System.out.println(output.indexOf("OpenJDK"));
