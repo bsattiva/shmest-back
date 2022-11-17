@@ -51,6 +51,13 @@ public class QueryHelper {
         return getData(query, PULL_TABLE);
     }
 
+    public static JSONObject getLogs(final int records, Area area) {
+        var query = "select time,message,area,id from shmest.log where area='"
+                + area.label + "' order by id desc limit " + records;
+
+    return getData(query, PULL_TABLE);
+    }
+
     public static void logEntry(final String message, final String project, final String area) {
         var query = "insert into shmest.log (time, project, area, message) values(now(),'?','?','?')";
         getData(Helper.completeString(QUESTION_MASK, query,new String[]{project, area, message}), EXECUTE);
@@ -209,7 +216,6 @@ public class QueryHelper {
                 .replaceFirst(QUESTION_MASK, name);
         var data = QueryHelper.getData(query, "pull-table");
 
-        logEntry("GOT PAGE OBJECT: " + data.toString(5), project, Area.QUERY_HELPER.label);
         if (data.length() > 0 && data.has("message") && data.getJSONArray("message").length() > 0) {
             var string = data.getJSONArray("message").getJSONObject(0).toString()
                     .replace(":\"{", ":{")

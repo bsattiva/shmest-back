@@ -79,40 +79,9 @@ public class TestStartController {
 
         var project = getProject(request);
         var name = request.getParameter("id");
-//        var query = "select page,url from shmest.pages where projectid='?' and pagename='?'"
-//                .replaceFirst(QUESTION_MASK, project)
-//                .replaceFirst(QUESTION_MASK, name);
-//        var data = QueryHelper.getData(query, "pull-table");
-//
-//        var string = data.getJSONArray("message").getJSONObject(0).toString()
-//                .replace(":\"{", ":{")
-//                .replace("}\",", "},")
-//                .replace("[\"{","[{")
-//                .replace("}\"]", "}]")
-//                .replace("\\", "")
-//                .replace("u00027", "'")
-//                .replaceAll("\"\"([a-zA-Z0-9]*)\"\"", "\"\"$1\"\"");
-//        System.out.println("SINGLE");
-//        System.out.println(string);
-//        var object = (data.has("message") && data.getJSONArray("message").length() > 0)
-//                ? new JSONObject(string)
-//                : new JSONObject()
-//                ;
-//        if (object.has("page")) {
-//            var page = object.getJSONObject("page");
-//            var keys = page.keys();
-//            var arr = new JSONArray();
-//            while (keys.hasNext()) {
-//                var key = keys.next();
-//                var obj = page.getJSONObject(key);
-//                arr.put(obj);
-//            }
-//            object.put("page", arr);
-//        }
-
 
         return QueryHelper.getSinglePage(project,name).toString();
-      //  return object.toString();
+
     }
 
 
@@ -273,7 +242,13 @@ public class TestStartController {
                 ? Integer.parseInt(request.getParameter("records")) : 0;
         var result = new JSONObject();
         if (Helper.isThing(project)) {
-            result = QueryHelper.getLogs(records);
+            if (Helper.isThing(request.getParameter("area"))) {
+                result = QueryHelper.getLogs(records, Area.valueOf(request.getParameter("area").toUpperCase()));
+            } else {
+
+                result = QueryHelper.getLogs(records);
+            }
+
         } else {
             QueryHelper.logEntry("UNAUTHORIZED ACCESS TO LOGS ATTEMPTED", "", Area.QUERY_HELPER.label);
             response.setStatus(401);
@@ -313,6 +288,7 @@ public class TestStartController {
         QueryHelper.logEntry("PROJECT: " + project, project, Area.STARTER.label);
 
         if (Helper.isThing(project)) {
+            QueryHelper.logEntry("PROJECT: " + project, project, Area.ATTENTION.label);
             object.put("project", project);
             object.put("projectId", project);
             object.put(RUN_ID, runId);
@@ -339,11 +315,19 @@ public class TestStartController {
             result.put("configSaved", configSaved);
             try {
                 var output = CommandRunner.runCommand();
+                var sendableOut = output;
+                if (output.contains("[INFO] BUILD") && output.contains("T E S T S[INFO]")) {
+
+                    sendableOut = output
+                            .substring(output.indexOf("T E S T S[INFO]"));
+                    sendableOut = sendableOut.substring(0, sendableOut.indexOf("[INFO] BUILD"));
+
+                }
                 result.put("output", output);
-                QueryHelper.logEntry(output, project, Area.CUBE.label);
+                QueryHelper.logEntry(sendableOut, project, Area.CUBE.label);
                 LOGGER.info(output);
             } catch (IOException e) {
-                QueryHelper.logEntry(e.getMessage(), project, Area.STARTER.label, e.getStackTrace());
+                QueryHelper.logEntry(e.getMessage(), project, Area.CUBE.label, e.getStackTrace());
                 result.put("error", e.getMessage());
                 e.printStackTrace();
                 LOGGER.error(e.getMessage());
