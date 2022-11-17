@@ -208,13 +208,17 @@ public class TestStartController {
         var object = RequestHelper.getRequestBody(request);
         var pageName = object.getString(PAGE_NAME);
         var html = object.getString(HTML);
-        var pageObject = HtmlHelper.parseHtml(html);
-        result.put(PAGE_NAME, pageName);
-        result.put("elements", pageObject);
-        result.put("project", object.getString("project"));
-        result.put("url", object.getString("url"));
-        System.out.print(result.toString(5));
-        System.out.print(QueryHelper.persistPage(result));
+        if (Helper.isThing(html)) {
+            var pageObject = HtmlHelper.parseHtml(html);
+            result.put(PAGE_NAME, pageName);
+            result.put("elements", pageObject);
+            result.put("project", object.getString("project"));
+            result.put("url", object.getString("url"));
+            System.out.print(result.toString(5));
+            System.out.print(QueryHelper.persistPage(result));
+
+        }
+
         return result.toString();
     }
 
