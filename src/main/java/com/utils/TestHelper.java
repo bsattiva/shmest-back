@@ -20,7 +20,9 @@ import java.util.stream.Collectors;
 public class TestHelper {
     private static final String TESTS = "children";
     private static final String ARGUMENTS = "arguments";
+    private static final String ARGS = "args";
     private static final String STEP = "step";
+    private static final String PREFIX = "prefix";
     private static final String MASK = "?";
     private static final String TAG = "tag";
     private static final String TEST_MASK = "<?>";
@@ -64,7 +66,10 @@ public class TestHelper {
         indent = indent + INDENT;
         var testArray = tests.getJSONArray(TESTS);
         var arguments = tests.getJSONArray(ARGUMENTS);
-        var step = tests.getString(STEP);
+        var prefix = (tests.has(PREFIX)) ? tests.getString(PREFIX) + " " : "";
+
+        var step = prefix + tests.getString(STEP);
+
         var tag = tests.getString(TAG);
         List<String> result = new ArrayList<>();
         result.add(tag);
@@ -76,11 +81,20 @@ public class TestHelper {
         return result;
     }
 
+    private static JSONArray getArguments(final JSONObject obj) {
+        var arguments = (obj.has(ARGUMENTS)) ? obj.getJSONArray(ARGUMENTS) : new JSONArray();
+        var args = (obj.has(ARGS)) ? obj.getJSONArray(ARGS) : new JSONArray();
+
+         return (arguments.length() > 0) ? arguments : args;
+
+    }
     public static List<String> getTests(final JSONObject tests, final String indent) {
         var indentValue = indent + INDENT;
-        var testArray = tests.getJSONArray(TESTS);
-        var arguments = tests.getJSONArray(ARGUMENTS);
-        var step = tests.getString(STEP);
+        var testArray = (tests.has(TESTS)) ? tests.getJSONArray(TESTS) : new JSONArray();
+        var arguments = getArguments(tests);
+        var prefix = (tests.has(PREFIX)) ? tests.getString(PREFIX) + " " : "";
+
+        var step = prefix + tests.getString(STEP);
         List<String> result = new ArrayList<>();
         result.add(indentValue + getStep(step, arguments));
         for (var i = 0; i < testArray.length(); i++) {
@@ -118,6 +132,10 @@ public class TestHelper {
 
     public static boolean savePages(final JSONObject object, final String path) {
         var ok = false;
+        if (!object.has("pages")) {
+            object.put("pages", new JSONArray());
+
+        }
         try {
             FileUtils.write(new File(path), object.toString(5), StandardCharsets.UTF_8);
             ok = true;

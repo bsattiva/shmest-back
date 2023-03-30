@@ -11,7 +11,7 @@
       "id": "1",
       "step": "I populate <1> field with <2>",
       "arguments": [],
-      "argTypes": ["field", "field"],
+      "argTypes": ["name", "field"],
       "prefix": "When"
     },
     {
@@ -25,7 +25,7 @@
       "id": "3",
       "step": "field <1> is populated with <2>",
       "arguments": [],
-      "argTypes": ["field", "field"],
+      "argTypes": ["name", "field"],
       "prefix": "Then"
     },
     {
@@ -47,6 +47,13 @@
       "step": "field <1> is populated with the memorized value",
       "arguments": [],
       "argTypes": ["field"],
+      "prefix": "Then"
+    },
+    {
+      "id": "7",
+      "step": "I am on <1> page",
+      "arguments": [],
+      "argTypes": ["page"],
       "prefix": "Then"
     }
   ]

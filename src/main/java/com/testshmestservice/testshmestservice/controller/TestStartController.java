@@ -9,6 +9,7 @@ import com.utils.TestHelper;
 import com.utils.command.CommandRunner;
 import com.utils.data.QueryHelper;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
@@ -164,6 +165,53 @@ public class TestStartController {
         body.put("password", obj.getString("password"));
         return QueryHelper.postData(Helper.getUrl("auth.url") + "/login", body).toString();
     }
+    @GetMapping("/single-test")
+    String getSingleTest(final HttpServletRequest request, final HttpServletResponse response) {
+        var token = request.getParameter("token");
+        var project = QueryHelper.getProject(token);
+        var status = Helper.getFailedObject();
+        if (Helper.isThing(project)) {
+            var id = request.getParameter("id");
+            status = QueryHelper
+                    .getData("select name,test from shmest.tests where id='" + id + "'", "pull-table");
+
+        } else {
+            response.setStatus(401);
+        }
+        return status.toString();
+    }
+
+    @PostMapping("/save-test")
+    String saveTest(final HttpServletRequest request, final HttpServletResponse response) {
+        var object = RequestHelper.getRequestBody(request);
+        var token = object.getString("token");
+        var status = Helper.getFailedObject();
+        var project = QueryHelper.getProject(token);
+        if (Helper.isThing(project)) {
+            var tests = object.getString("test");
+            var id = object.getString("id");
+            var name = object.getString("name");
+            var query = "insert into shmest.tests values('?','?','?','?','')"
+                    .replaceFirst(QUESTION_MASK, id)
+                    .replaceFirst(QUESTION_MASK, project)
+                    .replaceFirst(QUESTION_MASK, name)
+                    .replaceFirst(QUESTION_MASK, tests);
+            var idQuery = "select id from shmest.tests where id='" + id + "' and project='" + project + "'";
+            var savedId = QueryHelper.getData(idQuery, "pull-string");
+            if (savedId != null
+                    && savedId.has("message")
+                    && Helper.isThing(savedId.getString("message"))) {
+                query = "update shmest.tests set test='"
+                        + tests + "' where id='" + id + "' and project='" + project + "'";
+            }
+            var stat = QueryHelper.getData(query, "execute");
+            status.put("message", stat.getString("message"));
+        } else {
+            response.setStatus(401);
+
+        }
+        return status.toString();
+    }
 
     @GetMapping("/tests")
     String getTests(final HttpServletRequest request, final HttpServletResponse response) {
@@ -273,7 +321,13 @@ public class TestStartController {
         return result.toString();
     }
 
+    static class Runner extends Thread {
+        @SneakyThrows
+        public void run() {
+            CommandRunner.runCommand();
+        }
 
+    }
 
     @PostMapping("/start")
     String startTest(final HttpServletRequest request, final HttpServletResponse response) throws java.net.MalformedURLException {
@@ -281,9 +335,10 @@ public class TestStartController {
 
         var runId = Helper.getRandomString(8);
         var object = RequestHelper.getRequestBody(request);
-        if(object.has(RUN_ID)) {
+        if(object.has(RUN_ID) && !object.getString(RUN_ID).equals("undefined")) {
             runId = object.getString(RUN_ID);
         }
+
         var scenarioId = (object.has("scenarioId"))
                 ? object.getString("scenarioId") : Helper.getRandomString(10);
         var token = object.getString(TOKEN);
@@ -317,11 +372,14 @@ public class TestStartController {
             var configSaved = TestHelper.saveConfig(map, TestHelper.getSameLevelProject(TEST_PROJECT) + CONFIG);
             QueryHelper.logEntry("CONFIG SAVED: " + configSaved, project, "starter");
             result.put("configSaved", configSaved);
-            try {
-                var output = CommandRunner.runCommand();
-                System.out.print("RAW OUTPUT: " + output);
-                TestHelper.sleep(2000);
-                var sendableOut = RequestHelper.cleanOutput(output);
+
+            var runner = new Runner();
+            runner.start();
+
+//                var output = CommandRunner.runCommand();
+//                System.out.print("RAW OUTPUT: " + output);
+//                TestHelper.sleep(2000);
+            var sendableOut = "";
 //                var sendableOut = output;
 //                System.out.println();
 //                System.out.println(output.indexOf("OpenJDK"));
@@ -337,15 +395,9 @@ public class TestStartController {
 //                    sendableOut = "CORRUPTED: " + output;
 //
 //                }
-                result.put("output", sendableOut);
-                QueryHelper.logEntry(sendableOut, project, Area.CUBE.label);
-                LOGGER.info(output);
-            } catch (IOException e) {
-                QueryHelper.logEntry(e.getMessage(), project, Area.CUBE.label, e.getStackTrace());
-                result.put("error", e.getMessage());
-                e.printStackTrace();
-                LOGGER.error(e.getMessage());
-            }
+            result.put("output", sendableOut);
+            QueryHelper.logEntry(sendableOut, project, Area.CUBE.label);
+            LOGGER.info("output");
 
         } else {
             QueryHelper.logEntry("unauthorized request", project, Area.STARTER.label);
