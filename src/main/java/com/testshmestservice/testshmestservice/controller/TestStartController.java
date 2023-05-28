@@ -8,6 +8,7 @@ import com.utils.RequestHelper;
 import com.utils.TestHelper;
 import com.utils.command.CommandRunner;
 import com.utils.data.QueryHelper;
+import com.utils.enums.JsonHelper;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import org.apache.commons.io.FileUtils;
@@ -131,9 +132,15 @@ public class TestStartController {
 
     @GetMapping("/auth")
     String getProject(final HttpServletRequest request){
-        String token = request.getParameter(TOKEN).replace(" ", "+");
-        return QueryHelper.getProject(token);
+        var head = request.getParameter("head");
+        var getId = request.getParameter("getId");
+        String token = (!Helper.isThing(head))
+                ? request.getParameter(TOKEN).replace(" ", "+")
+                : request.getHeader(TOKEN).replace(" ", "+");
+
+        return (!Helper.isThing(getId)) ? QueryHelper.getProject(token) : QueryHelper.getIdByToken(token);
     }
+
 
     @GetMapping("/parse")
     String getLocalHtml(final HttpServletRequest request) {
@@ -165,9 +172,10 @@ public class TestStartController {
         body.put("password", obj.getString("password"));
         return QueryHelper.postData(Helper.getUrl("auth.url") + "/login", body).toString();
     }
+
     @GetMapping("/single-test")
     String getSingleTest(final HttpServletRequest request, final HttpServletResponse response) {
-        var token = request.getParameter("token");
+        var token = request.getParameter("token").replace(" ", "+");
         var project = QueryHelper.getProject(token);
         var status = Helper.getFailedObject();
         if (Helper.isThing(project)) {
@@ -213,6 +221,17 @@ public class TestStartController {
         return status.toString();
     }
 
+    @GetMapping("/delete-test")
+    String deleteTest(final HttpServletRequest request, final HttpServletResponse response) {
+        String token = request.getParameter(TOKEN).replace(" ", "+");
+        var project = QueryHelper.getProject(token);
+        var query = "delete from shmest.tests where project='"
+                + project + "' and id='" + request.getParameter("id") + "'";
+        var data = QueryHelper.getData(query, "execute");
+
+        return data.getJSONArray("message").toString();
+    }
+
     @GetMapping("/tests")
     String getTests(final HttpServletRequest request, final HttpServletResponse response) {
         String token = request.getParameter(TOKEN).replace(" ", "+");
@@ -228,6 +247,65 @@ public class TestStartController {
         var defs = FileHelper.getResourceFile("defs.json", false);
         return FileUtils.readFileToString(defs, StandardCharsets.UTF_8);
 
+    }
+
+
+    @GetMapping("/amds_enabled_sheets")
+    String getAmdsEnabledSheets(final HttpServletRequest request, final HttpServletResponse response) {
+        var object = Helper.getFailedObject();
+        var token = request.getHeader(TOKEN).replace(" ", "+");
+        var id = QueryHelper.getIdByToken(token);
+        var ids = QueryHelper.getEnabledAmdsSheets(id);
+
+        object.put("message", JsonHelper.getArrayFromList(ids));
+        return object.toString();
+    }
+
+    @GetMapping("/amds_mri_skills")
+    String getAmdsMriSkillsTable(final HttpServletRequest request, final HttpServletResponse response) {
+        var result = new JSONObject();
+        var user = getProject(request);
+        var query = "select row_name,phillips,siemens,ge,comments from amds.mri_skills where user_id='" + user + "'";
+        return QueryHelper.getData(query, "pull-table").toString();
+    }
+
+
+    @PostMapping("/amds_mri_skills_create")
+    String postAmdsMriSkillsTable(final HttpServletRequest request, final HttpServletResponse response) {
+        var result = new JSONObject();
+        var object = RequestHelper.getRequestBody(request);
+        var user = QueryHelper.getProject(object.getString(TOKEN));
+        var table = object.getJSONArray("table");
+            var delQuery = "delete from amds.mri_skills where user_id='" + user + "'";
+        if (Helper.isThing(user)) {
+            QueryHelper.getData(delQuery, "execute");
+            for (var i  = 0; i < table.length(); i++) {
+                var row = table.getJSONObject(i);
+                if (i == 135) {
+                    System.out.print("");
+
+                }
+                var rowName = row.getString("rowName")
+                        .replace("'", "\\\\'").replace("?", "<q>");
+                var phillips = row.getString("phillips");
+                var siemens = row.getString("siemens");
+                var ge = row.getString("ge");
+                var comment = row.getString("comment").replace("'", "\\\\'");
+                var query = "insert into amds.mri_skills values('?','?','?','?','?','?')"
+                        .replaceFirst(QUESTION_MASK, rowName)
+                        .replaceFirst(QUESTION_MASK, phillips)
+                        .replaceFirst(QUESTION_MASK, siemens)
+                        .replaceFirst(QUESTION_MASK, ge)
+                        .replaceFirst(QUESTION_MASK, comment)
+                        .replaceFirst(QUESTION_MASK, user);
+                result.put(rowName, QueryHelper.getData(query, "execute"));
+                System.out.print(i);
+            }
+
+        }
+
+
+        return result.toString();
     }
 
     @PostMapping("/post-page")

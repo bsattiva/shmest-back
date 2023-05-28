@@ -17,7 +17,7 @@
     {
       "id": "2",
       "step": "I click on <1>",
-      "argTypes": ["field"],
+      "argTypes": ["click"],
       "arguments": [],
       "prefix": "When"
     },

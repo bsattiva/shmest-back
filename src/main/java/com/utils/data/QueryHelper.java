@@ -2,14 +2,15 @@ package com.utils.data;
 
 
 import com.enums.Area;
-import com.utils.FileHelper;
 import com.utils.Helper;
-import com.utils.RequestHelper;
 import com.utils.TestHelper;
-import jdk.jfr.StackTrace;
+import com.utils.enums.JsonHelper;
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import javax.print.DocFlavor;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,6 +24,7 @@ public class QueryHelper {
     private static final String STATUS = "status";
     private static final String PULL_STRING = "pull-string";
     private static final String PULL_TABLE = "pull-table";
+    private static final String PULL_LIST = "pull-list";
     private static final String EXECUTE = "execute";
     private static final String SUCCESS = "success";
     private final static Logger LOGGER = Logger.getLogger(QueryHelper.class);
@@ -65,6 +67,28 @@ public class QueryHelper {
 
     }
 
+    public static List<String> getAmdsDisabledSheets(final String userId) {
+
+        var query = "select sheet_id from amds.disabled_sheets where user_id=" + userId;
+        var object = QueryHelper.getData(query, PULL_LIST);
+        var idArray = (object.has(MESSAGE)) ? object.getJSONArray(MESSAGE) : new JSONArray();
+        List<String> ids = new ArrayList<>();
+        idArray.forEach(str -> ids.add((String) str));
+        return ids;
+    }
+
+    public static List<String> getAllAmdsSheets() {
+        var query = "select id from amds.sheets";
+        return JsonHelper.getListFromJsonArray(getData(query, PULL_LIST).getJSONArray(MESSAGE));
+    }
+
+
+    public static List<String> getEnabledAmdsSheets(final String userId) {
+        List<String> ids = new ArrayList<>();
+        var disabledIds = getAmdsDisabledSheets(userId);
+        var allIds = getAllAmdsSheets();
+        return allIds.stream().filter(id -> !disabledIds.contains(id)).collect(Collectors.toList());
+    }
     public static void logEntry(final String message, final String project, final String area) {
         var query = "insert into shmest.log (time, project, area, message) values(now(),'?','?','?')";
         System.out.println("TRYING TO SAVE WITH QUERY: " + Helper.completeString(QUESTION_MASK, query,new String[]{project, area, message}));
@@ -300,11 +324,15 @@ public class QueryHelper {
         try {
             var res = HttpClient.sendHttpsPost(new JSONObject(), url).getJSONObject("profile");
             result = res.getJSONObject("profile").getJSONObject(MESSAGE).getString("name");
-
+            System.out.print(res.getJSONObject("profile").toString(5));
         } catch (Exception e) {
             LOGGER.error(e.getMessage());
         }
         return result;
+    }
+
+    public static String getIdByToken(final String token) {
+        return getIdByName(getProject(token));
     }
 
     public static String getIdByName(final String name){
