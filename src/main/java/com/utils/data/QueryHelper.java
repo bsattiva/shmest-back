@@ -2,6 +2,7 @@ package com.utils.data;
 
 
 import com.enums.Area;
+import com.utils.AmdsHelper;
 import com.utils.Helper;
 import com.utils.TestHelper;
 import com.utils.enums.JsonHelper;
@@ -318,6 +319,11 @@ public class QueryHelper {
     }
 
 
+
+    public static JSONObject saveAmdsSheetRow(final String sheetId, final String userId, final JSONObject row) {
+        final var query = AmdsHelper.getCreateSheetQuery(sheetId, userId, row);
+        return getData(query, EXECUTE);
+    }
     public static String getProject(final String token){
         String result = "";
         String url = Helper.getUrl("backend.url") + "middle/auth?token=" + token;

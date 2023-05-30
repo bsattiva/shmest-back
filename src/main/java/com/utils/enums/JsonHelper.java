@@ -14,6 +14,13 @@ public class JsonHelper {
         return list;
     }
 
+    public static List<Object> getListObjectFromJsonArray(final JSONArray array) {
+        List<Object> list = new ArrayList<>();
+        array.forEach(list::add);
+        return list;
+    }
+
+
     public static JSONArray getArrayFromList(final List<String> list) {
         var array = new JSONArray();
         list.forEach(array::put);

@@ -1,6 +1,7 @@
 package com.testshmestservice.testshmestservice.controller;
 
 import com.enums.Area;
+import com.utils.AmdsHelper;
 import com.utils.FileHelper;
 import com.utils.Helper;
 import com.utils.HtmlHelper;
@@ -46,11 +47,11 @@ public class TestStartController {
     private static final String TEST_PROJECT = "TestCube";
     @Getter
     private static final String PROJECT = "project";
-
+    public static final String ID = "id";
     private static final String TOKEN = "token";
     private static final String RUN_ID = "runId";
     private static final String STEP_ID = "stepId";
-
+    public static final String PULL_TABLE = "pull-table";
     private static final String MASK = "?";
     private static final String QUESTION_MASK = "\\?";
     private static final String DEFAULT_FEATURE = "/src/test/features/defaultFeature.feature";
@@ -269,14 +270,51 @@ public class TestStartController {
         return QueryHelper.getData(query, "pull-table").toString();
     }
 
+    @GetMapping("/amds_sheet")
+    String getAmdsSheet(final HttpServletRequest request, final HttpServletResponse response) {
+
+        var token = request.getHeader(TOKEN);
+        var sheetId = request.getParameter(ID);
+        var userId = QueryHelper.getIdByToken(token);
+        var query = AmdsHelper.getSheetQuery(sheetId, userId);
+        return QueryHelper.getData(query, PULL_TABLE).toString();
+    }
+
+
+    @PostMapping("/amds_create_sheet")
+    String createAmdsSheet(final HttpServletRequest request, final HttpServletResponse response) {
+        var object = RequestHelper.getRequestBody(request);
+        var statusObject = new JSONObject();
+        statusObject.put("status", new JSONArray());
+        var token = object.getString(TOKEN);
+        var sheetId = object.getString(ID);
+        var sheetName = AmdsHelper.getTableName(sheetId);
+
+        var userId = QueryHelper.getIdByToken(token);
+        if (Helper.isThing(userId)) {
+            var delQuery = "delete from amds." + sheetName + " where user_id='" + userId + "'";
+            QueryHelper.getData(delQuery, "execute");
+
+            var table = object.getJSONArray("table");
+            for (var i = 0; i < table.length(); i++) {
+             var row = table.getJSONObject(i);
+             statusObject.getJSONArray("status").put(QueryHelper.saveAmdsSheetRow(sheetId, userId, row));
+            }
+        } else {
+            response.setStatus(401);
+        }
+
+
+        return statusObject.toString();
+    }
 
     @PostMapping("/amds_mri_skills_create")
     String postAmdsMriSkillsTable(final HttpServletRequest request, final HttpServletResponse response) {
         var result = new JSONObject();
         var object = RequestHelper.getRequestBody(request);
-        var user = QueryHelper.getProject(object.getString(TOKEN));
+        var user = QueryHelper.getIdByToken(object.getString(TOKEN));
         var table = object.getJSONArray("table");
-            var delQuery = "delete from amds.mri_skills where user_id='" + user + "'";
+            var delQuery = "delete from amds.mri_clinical_skills where user_id='" + user + "'";
         if (Helper.isThing(user)) {
             QueryHelper.getData(delQuery, "execute");
             for (var i  = 0; i < table.length(); i++) {
@@ -291,7 +329,7 @@ public class TestStartController {
                 var siemens = row.getString("siemens");
                 var ge = row.getString("ge");
                 var comment = row.getString("comment").replace("'", "\\\\'");
-                var query = "insert into amds.mri_skills values('?','?','?','?','?','?')"
+                var query = "insert into amds.mri_clinical_skills values('?','?','?','?','?','?')"
                         .replaceFirst(QUESTION_MASK, rowName)
                         .replaceFirst(QUESTION_MASK, phillips)
                         .replaceFirst(QUESTION_MASK, siemens)
