@@ -280,6 +280,20 @@ public class TestStartController {
         return QueryHelper.getData(query, PULL_TABLE).toString();
     }
 
+    @GetMapping("/amds_columns")
+    String getAmdsColumns(final HttpServletRequest request, final HttpServletResponse response) {
+
+        var token = request.getHeader(TOKEN);
+        var sheetId = request.getParameter(ID);
+        var userId = QueryHelper.getIdByToken(token);
+        if (Helper.isThing(userId)) {
+            return AmdsHelper.getColumns(sheetId);
+        } else {
+            response.setStatus(401);
+            return "";
+        }
+    }
+
 
     @PostMapping("/amds_create_sheet")
     String createAmdsSheet(final HttpServletRequest request, final HttpServletResponse response) {

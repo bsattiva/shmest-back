@@ -2,7 +2,6 @@ package com.utils;
 
 import com.utils.data.QueryHelper;
 import com.utils.enums.JsonHelper;
-import org.apache.http.impl.conn.PoolingClientConnectionManager;
 import org.json.JSONObject;
 
 import java.util.List;
@@ -16,7 +15,7 @@ public class AmdsHelper {
         return normalizeTable(QueryHelper.getData(query, PULL_STRING).getString(MESSAGE));
     }
 
-    private static String getColumns(final String tableId) {
+    public static String getColumns(final String tableId) {
         final String query = "select properties from amds.sheets where id='" + tableId + "'";
         return "row_name," + QueryHelper.getData(query, PULL_STRING).getString(MESSAGE);
     }
@@ -30,6 +29,7 @@ public class AmdsHelper {
     }
 
     public static final String QUERY_TEMPLATE = "select ? from amds.? where user_id='?'";
+    public static final String SHEET_QUERY_TEMPLATE = "select ? from amds.? where id='?' user_id='?'";
     public static final String CREATE_QUERY_TEMPLATE = "insert into amds.? (?,user_id) values(<q>)";
     public static final String QUESTION_MASK = "\\?";
 
@@ -72,10 +72,6 @@ public class AmdsHelper {
            }
        }
         return builder.toString() + "user_id varchar(45)";
-    }
-
-    public static void main(String[] args) {
-        createSheetsTables();
     }
 
     public static String normalizeColumn(final String column) {
