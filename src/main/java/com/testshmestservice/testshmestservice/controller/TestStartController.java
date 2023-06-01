@@ -282,7 +282,7 @@ public class TestStartController {
 
     @GetMapping("/amds_columns")
     String getAmdsColumns(final HttpServletRequest request, final HttpServletResponse response) {
-        
+
         var token = request.getHeader(TOKEN);
         var sheetId = request.getParameter(ID);
         var userId = QueryHelper.getIdByToken(token);
