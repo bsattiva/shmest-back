@@ -5,6 +5,7 @@ import com.utils.AmdsHelper;
 import com.utils.FileHelper;
 import com.utils.Helper;
 import com.utils.HtmlHelper;
+import com.utils.PdfHelper;
 import com.utils.RequestHelper;
 import com.utils.TestHelper;
 import com.utils.command.CommandRunner;
@@ -19,6 +20,7 @@ import org.json.JSONObject;
 
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.ContentDisposition;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,8 +36,18 @@ import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import java.net.MalformedURLException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.regex.Pattern;
 
 @RestController
 @EnableAutoConfiguration
@@ -48,11 +60,16 @@ public class TestStartController {
     @Getter
     private static final String PROJECT = "project";
     public static final String ID = "id";
+    public static final String USER_ID = "userId";
     private static final String TOKEN = "token";
+    public static final String USER_TOKEN = "userToken";
+    public static final String FILE_ID = "fileId";
     private static final String RUN_ID = "runId";
     private static final String STEP_ID = "stepId";
     public static final String PULL_TABLE = "pull-table";
+    public static final String PULL_MAP = "pull-map";
     private static final String MASK = "?";
+    public static final String MESSAGE = "message";
     private static final String QUESTION_MASK = "\\?";
     private static final String DEFAULT_FEATURE = "/src/test/features/defaultFeature.feature";
     private static final String PAGES = "/src/test/resources/pages.json";
@@ -165,6 +182,131 @@ public class TestStartController {
         return htmlObject.toString();
     }
 
+    @GetMapping("/user-profile")
+    String getUserProfile(final HttpServletRequest request, final HttpServletResponse response) {
+
+        final var token = request.getHeader(TOKEN);
+        final var id = QueryHelper.getIdByToken(token);
+        final var userId = request.getParameter("userId");
+
+        var result = Helper.getFailedObject();
+        if (Helper.isThing(id)) {
+            if (QueryHelper.isAdmin(id)) {
+                result = QueryHelper.loginAsUser(userId);
+            } else {
+                response.setStatus(403);
+            }
+        } else {
+            response.setStatus(401);
+        }
+        return result.toString();
+    }
+
+
+    @GetMapping("/reset")
+    String reset(final HttpServletRequest request, final HttpServletResponse response) {
+
+        final var token = request.getHeader(TOKEN);
+        final var id = QueryHelper.getIdByToken(token);
+        final var userId = request.getParameter("userId");
+        final var password = request.getParameter("password");
+        var result = Helper.getFailedObject().toString();
+        if (Helper.isThing(id)) {
+            if (QueryHelper.isAdmin(id)) {
+                result = QueryHelper.reset(userId, password);
+            } else {
+                response.setStatus(403);
+            }
+        } else {
+            response.setStatus(401);
+        }
+        return result;
+    }
+
+
+    @GetMapping("/test-locked")
+    String testLocked(final HttpServletRequest request, final HttpServletResponse response) {
+
+        final var token = request.getHeader(TOKEN);
+        final var id = QueryHelper.getIdByToken(token);
+        final var userId = request.getParameter("userId");
+        var result = Helper.getFailedObject();
+        if (Helper.isThing(id)) {
+            if (QueryHelper.isAdmin(id)) {
+                result = new JSONObject();
+                var status = (QueryHelper.testLocked(userId)) ? 1 : 0;
+                result.put("message", status);
+            } else {
+                response.setStatus(403);
+            }
+        } else {
+            response.setStatus(401);
+        }
+        return result.toString();
+    }
+
+    @GetMapping("/unlock")
+    String unlock(final HttpServletRequest request, final HttpServletResponse response) {
+
+        final var token = request.getHeader(TOKEN);
+        final var id = QueryHelper.getIdByToken(token);
+        var result = Helper.getFailedObject();
+        final var userId = request.getParameter("userId");
+        if (Helper.isThing(id)) {
+            if (QueryHelper.isAdmin(id)) {
+                result = new JSONObject();
+                QueryHelper.unlock(userId);
+                TestHelper.sleep(300);
+                var status = (QueryHelper.testLocked(userId)) ? 1 : 0;
+                result.put("message", status);
+            } else {
+                response.setStatus(403);
+            }
+        } else {
+            response.setStatus(401);
+        }
+        return result.toString();
+    }
+
+    @PostMapping("/register")
+    String register(final HttpServletRequest request, final HttpServletResponse response) {
+        var obj = RequestHelper.getRequestBody(request);
+        var token = request.getHeader(TOKEN);
+        var id = QueryHelper.getIdByToken(token);
+        var result = Helper.getFailedObject();
+        if (Helper.isThing(id)) {
+            if (QueryHelper.isAdmin(id)) {
+                result = new JSONObject();
+                var body = new JSONObject();
+                body.put("email", obj.getString("email"));
+                body.put("password", obj.getString("password"));
+                var preUser = QueryHelper.getLastUser();
+                result.put("create", QueryHelper.postData(Helper.getUrl("auth.url") + "/register", body));
+                TestHelper.sleep(2000);
+                var afterUser = QueryHelper.getLastUser();
+                if (Integer.parseInt(afterUser) > Integer.parseInt(preUser)) {
+                    var name = obj.getString("name");
+                    result.put("rename", QueryHelper.updateName(name, afterUser));
+                    result.put("unlock", QueryHelper.unlock(afterUser));
+                } else {
+                    result.put("user", afterUser);
+                    response.setStatus(500);
+
+                }
+
+            } else {
+                response.setStatus(403);
+
+            }
+
+        } else {
+            response.setStatus(401);
+        }
+
+
+        return result.toString();
+    }
+
     @PostMapping("/signin")
     String signIn(final HttpServletRequest request, final HttpServletResponse response) {
         var obj = RequestHelper.getRequestBody(request);
@@ -262,6 +404,133 @@ public class TestStartController {
         return object.toString();
     }
 
+    @GetMapping("/is-one")
+    String isOnefinal(HttpServletRequest request, final HttpServletResponse response) {
+        var token = request.getHeader(TOKEN);
+        var id = QueryHelper.getIdByToken(token);
+        return (QueryHelper.isAdmin(id)) ? "1" : "0";
+    }
+
+
+
+    @GetMapping("/amds-init-file")
+    String generateUserFile(final HttpServletRequest request,
+                            final HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setHeader("Expires", "0");
+        final var fileId = request.getParameter(FILE_ID);
+        final var token = request.getHeader(TOKEN);
+        final var id = QueryHelper.getIdByToken(token);
+        final var userId = request.getParameter(USER_ID);
+        var status = Helper.getFailedObject();
+        if (Helper.isThing(id)) {
+            if (QueryHelper.isAdmin(id)) {
+                PdfHelper.saveUserPdf(userId, fileId);
+                status = new JSONObject();
+                status.put("message", "success");
+            } else {
+                response.setStatus(403);
+            }
+        } else response.setStatus(401);
+        return status.toString();
+    }
+
+    @GetMapping("/download-pdf")
+    ResponseEntity<Resource>  downloadPdf(final HttpServletRequest request,
+                                       final HttpServletResponse response) throws MalformedURLException {
+        var token = request.getHeader(TOKEN);
+        var fileId = request.getParameter(FILE_ID);
+        var id = QueryHelper.getIdByToken(token);
+
+        var userId = request.getParameter(USER_ID);
+
+        if (QueryHelper.isAdmin(id)) {
+
+
+
+
+            Path fileDirectory = Paths
+                    .get(TestHelper.getSameLevelProject("files") +  "/output_" + fileId + "_" + userId + ".pdf");
+            Path filePath = fileDirectory
+                    .resolve(TestHelper.getSameLevelProject("files") +  "/output_" + fileId + "_" + userId + ".pdf");
+            var resource = new UrlResource(filePath.toUri());
+
+            String contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+
+            // Set content disposition header
+            String disposition = "attachment; filename=" + resource.getFilename();
+
+            // Create response headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(contentType));
+            headers.setContentDisposition(ContentDisposition.builder("attachment")
+                    .filename(Objects.requireNonNull(resource.getFilename()))
+                    .build());
+
+
+            return ResponseEntity.ok().headers(headers).body(resource);
+
+        } else {
+            response.setStatus(403);
+        }
+
+        return null;
+    }
+
+    @GetMapping("/download")
+    ResponseEntity<Resource>  download(final HttpServletRequest request,
+                                       final HttpServletResponse response) throws MalformedURLException {
+        var token = request.getHeader(TOKEN);
+        var id = QueryHelper.getIdByToken(token);
+        var sheetId = request.getParameter(ID);
+        var userId = request.getParameter(USER_ID);
+        String contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        var dataId = "";
+        if (QueryHelper.isAdmin(id)) {
+            var query = AmdsHelper.getSheetQuery(sheetId);
+            if (Helper.isThing(userId)) {
+                try {
+                     dataId = (Helper.isThing(AmdsHelper.getUserIdByEmail(userId)))
+                            ? AmdsHelper.getUserIdByEmail(userId) : "";
+                    query = AmdsHelper.getSheetQuery(sheetId, dataId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+            }
+            var data = QueryHelper.getData(query, PULL_TABLE);
+
+            AmdsHelper.saveSheet(sheetId, data, dataId);
+            Path fileDirectory = Paths.get(AmdsHelper.getAmdsFilesPath(AmdsHelper.getTableName(sheetId)));
+            Path filePath = fileDirectory.resolve(AmdsHelper.getAmdsFilesPath(AmdsHelper.getTableName(sheetId)));
+            var resource = new UrlResource(filePath.toUri());
+
+            //String contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+
+            // Set content disposition header
+            String disposition = "attachment; filename=" + resource.getFilename();
+
+            // Create response headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Content-Security-Policy", "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'inline-speculation-rules'");
+            headers.setContentType(MediaType.parseMediaType(contentType));
+            headers.setContentDisposition(ContentDisposition.builder("attachment")
+                    .filename(Objects.requireNonNull(resource.getFilename()))
+                    .build());
+
+
+            return ResponseEntity.ok().headers(headers).body(resource);
+
+        } else {
+            response.setStatus(403);
+        }
+
+        return null;
+    }
+
+
     @GetMapping("/amds_mri_skills")
     String getAmdsMriSkillsTable(final HttpServletRequest request, final HttpServletResponse response) {
         var result = new JSONObject();
@@ -278,6 +547,34 @@ public class TestStartController {
         var userId = QueryHelper.getIdByToken(token);
         var query = AmdsHelper.getSheetQuery(sheetId, userId);
         return QueryHelper.getData(query, PULL_TABLE).toString();
+    }
+
+    @GetMapping("/amds_users")
+    String getAmdsUsers(final HttpServletRequest request, final HttpServletResponse response) {
+        var token = request.getHeader(TOKEN);
+        var userId = QueryHelper.getIdByToken(token);
+        var name = request.getParameter("name");
+        var result = new JSONArray();
+        if (Helper.isThing(userId)) {
+            if (QueryHelper.isAdmin(userId)) {
+                if (!Helper.isThing(name)) {
+                    result = QueryHelper.getUsers();
+
+                } else {
+                    result = QueryHelper.getUsersByName(name);
+                }
+
+
+            } else {
+                response.setStatus(403);
+
+            }
+
+        } else {
+            response.setStatus(401);
+
+        }
+            return result.toString();
     }
 
     @GetMapping("/amds_columns")
@@ -301,25 +598,49 @@ public class TestStartController {
         var statusObject = new JSONObject();
         statusObject.put("status", new JSONArray());
         var token = object.getString(TOKEN);
+        var userToken = ((object.has(USER_TOKEN)) && object.get(USER_TOKEN) instanceof String) ? object.getString(USER_TOKEN) : "";
+
         var sheetId = object.getString(ID);
         var sheetName = AmdsHelper.getTableName(sheetId);
 
         var userId = QueryHelper.getIdByToken(token);
+        var managedId = (Helper.isThing(userToken)) ? QueryHelper.getIdByToken(userToken) : userId;
         if (Helper.isThing(userId)) {
-            var delQuery = "delete from amds." + sheetName + " where user_id='" + userId + "'";
-            QueryHelper.getData(delQuery, "execute");
-
+            var isAdmin = QueryHelper.isAdmin(userId);
+            var adminCols = "row_name," + AmdsHelper.getAdminColumns(sheetId);
+            var selQuery = "select " + adminCols + " from amds." + sheetName + " where user_id='" + managedId + "'";
+            var obj = new JSONObject();
             var table = object.getJSONArray("table");
-            for (var i = 0; i < table.length(); i++) {
-             var row = table.getJSONObject(i);
-             statusObject.getJSONArray("status").put(QueryHelper.saveAmdsSheetRow(sheetId, userId, row));
+            var adminIntact = true;
+            if (!isAdmin) {
+                obj = QueryHelper.getData(selQuery, PULL_TABLE);
+                var old = (obj.has(MESSAGE)) ? obj.getJSONArray(MESSAGE) : new JSONArray();
+                adminIntact = AmdsHelper.adminColumnsIntact(old, table, adminCols);
             }
-        } else {
-            response.setStatus(401);
+            if (adminIntact) {
+                var delQuery = "delete from amds." + sheetName + " where user_id='" + managedId + "'";
+                QueryHelper.getData(delQuery, "execute");
+
+
+                var inQuery = AmdsHelper.createSheetPopulateQuery(sheetId, managedId, table);
+
+
+
+                QueryHelper.getData(inQuery, "execute");
+
+            } else {
+                response.setStatus(401);
+            }
+
+
+            return statusObject.toString();
+
+            } else {
+            response.setStatus(400);
+            return "invalid operation";
+
         }
 
-
-        return statusObject.toString();
     }
 
     @PostMapping("/amds_mri_skills_create")

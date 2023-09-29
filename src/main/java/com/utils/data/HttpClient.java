@@ -126,8 +126,10 @@ public class HttpClient {
             URL r = new URL(url);
 
 
+            HttpURLConnection conn = (!url.contains("https"))
+                    ? (HttpURLConnection)r.openConnection() : (HttpsURLConnection)r.openConnection();
 
-            HttpsURLConnection conn = (HttpsURLConnection)r.openConnection();
+
             conn.setAllowUserInteraction(true);
             //  conn.setDoOutput(true);
             conn.setRequestProperty("Accept","application/json");

@@ -20,12 +20,6 @@ import javax.servlet.http.HttpServletResponse;
 
 public class TestshmestserviceApplication {
 
-//	public static final String SCENARIO = "scenario";
-//
-//	@PostMapping("/start")
-//	String runTest(final HttpServletRequest request, final HttpServletResponse response) {
-//		return null;
-//	}
 
 	public static void main(String[] args) {
 		SpringApplication.run(TestshmestserviceApplication.class, args);

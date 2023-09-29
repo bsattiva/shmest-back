@@ -4,16 +4,20 @@ package com.utils.data;
 import com.enums.Area;
 import com.utils.AmdsHelper;
 import com.utils.Helper;
+
 import com.utils.TestHelper;
 import com.utils.enums.JsonHelper;
 import org.apache.log4j.Logger;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import javax.print.DocFlavor;
+
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -28,6 +32,7 @@ public class QueryHelper {
     private static final String PULL_LIST = "pull-list";
     private static final String EXECUTE = "execute";
     private static final String SUCCESS = "success";
+    public static final String SEED = "sdk^sirhf87w8e6! djdsdghxz78 hdhdhd&&&&&&&& shd";
     private final static Logger LOGGER = Logger.getLogger(QueryHelper.class);
     private final static String QUESTION_MASK = "\\?";
     private static final String PROJECT_ID = "projectId";
@@ -111,6 +116,71 @@ public class QueryHelper {
             result.remove("seed");
         } catch (Exception e) {
             e.printStackTrace();
+        }
+        return result;
+    }
+
+    public static String getEmailById(final String id) {
+       final var query = "select email from user.user where name=" + id;
+       return Helper.decrypt(getData(query, PULL_STRING).getString(MESSAGE), SEED);
+    }
+
+    public static void main(String[] args) {
+     //   System.out.println(getEmailById("27"));
+       // System.out.println(getEmailById("28"));
+     //   System.out.println(getEmailById("29"));
+     //   System.out.println(getEmailById("30"));
+     //   System.out.println(getEmailById("31"));
+    //    System.out.println(getEmailById("32"));
+//        System.out.println(getEmailById("33"));
+//        System.out.println(getEmailById("34"));
+//        System.out.println(getEmailById("35"));
+//        System.out.println(getEmailById("36"));
+//        System.out.println(getEmailById("37"));
+//        System.out.println(getEmailById("38"));
+//        System.out.println(getEmailById("39"));
+//        System.out.println(getEmailById("40"));
+//        System.out.println(getEmailById("41"));
+//        System.out.println(getEmailById("42"));
+//        System.out.println(getEmailById("42"));
+//        System.out.println(getEmailById("43"));
+//        System.out.println(getEmailById("44"));
+//        System.out.println(getEmailById("1334"));
+//        System.out.println(getEmailById("1334"));
+        System.out.println(getEmailById("47"));
+        System.out.println(getEmailById("48"));
+        System.out.println(getEmailById("49"));
+        System.out.println(getEmailById("1123"));
+
+    }
+
+    public static String getPasswordlById(final String id) {
+        final var query = "select pass from user.user where name=" + id;
+        return Helper.decrypt(getData(query, PULL_STRING).getString(MESSAGE), SEED);
+    }
+
+//    public static void main(String[] args) {
+//        System.out.print(loginAsUser("1341").toString(4));
+//        System.out.println(testLocked("1341"));
+//    }
+
+    private static void lock(final String id, final String locked) {
+        var query = "update user.user set locked='" + locked + "' where name=" + id;
+        getData(query, EXECUTE);
+    }
+
+    public static JSONObject loginAsUser(final String id) {
+        final var url = Helper.getUrl("auth.url") + "/login";
+        var body = new JSONObject();
+        var result = new JSONObject();
+        body.put("email", getEmailById(id));
+        body.put("password", getPasswordlById(id));
+        try {
+            var locked = unlock(id).getString("locked");
+            result = HttpClient.sendHttpsPost(body, url);
+            lock(id, locked);
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage());
         }
         return result;
     }
@@ -285,6 +355,69 @@ public class QueryHelper {
 
     }
 
+
+    public static JSONObject saveUser(final String firstName,
+                                      final String lastName,
+                                      final String email,
+                                      final String password) {
+        var numQuery = "select max(name) from user.user";
+        var preId = getData(numQuery, "pull-string").getString("message");
+        final String url = "http://162.240.103.238:8088/register";
+        //final String url = "http://localhost:8088/register";
+        final var body = new JSONObject();
+        body.put("email", email.trim());
+        body.put("password", password.trim());
+        var obj = HttpClient.sendHttpsPost(body, url);
+        if (obj.has("message") && obj.getString("message").equals("success")) {
+            TestHelper.sleep(1000);
+            var id = getData(numQuery, "pull-string").getString("message");
+            if (Integer.parseInt(id) > Integer.parseInt(preId)) {
+                var query = "update user.profile set content='"
+                        + firstName.trim() + " " + lastName.trim() + "' where section = '" + id + "'" ;
+                var stat = getData(query, "execute");
+                obj.put("profile", stat);
+
+            } else {
+
+
+
+                System.out.println("failed to save: " + email.trim());
+            }
+
+
+        } else {
+            System.out.println("failue");
+            System.out.println();
+            System.out.print(obj.toString());
+
+        }
+
+        return obj;
+    }
+
+
+//    public static void main(String[] args) {
+//
+//        System.out.print(getUsers().toString(5));
+//
+//
+//        var users = AmdsHelper.getUsers();
+//        List<String> emails = new ArrayList<>();
+//        for (var user:users) {
+//            if (!emails.contains(user[2].trim())) {
+//                var password = Helper.getRandomString(7);
+//                saveUser(user[0], user[1], user[2], password);
+//                System.out.println(user[0] + "," + user[1] + "," + user[2] + "," + password);
+//                emails.add(user[2].trim());
+//
+//            }
+//
+//
+//        }
+//
+//    }
+
+
     public static JSONObject persistPage(final JSONObject page) {
         final String pageName = page.getString("pageName");
         final String pageObject = page.getJSONObject("elements").toString().replace("'", "\\\\'");
@@ -324,9 +457,44 @@ public class QueryHelper {
         final var query = AmdsHelper.getCreateSheetQuery(sheetId, userId, row);
         return getData(query, EXECUTE);
     }
+
+    public static String getLastUser() {
+        var query = "select max(name) from user.user";
+        return getData(query, "pull-string").getString(MESSAGE);
+    }
+
+    public static boolean testLocked(final String id) {
+        final var query = "select locked from user.user where name=" + id;
+        final var result = getData(query, PULL_STRING);
+        return result.has(MESSAGE) && Helper.isThing(result.getString(MESSAGE));
+    }
+
+    public static String reset(final String id, final String password) {
+
+        var pass = Helper.encrypt(password, SEED);
+        var query = "update user.user set pass='" + pass + "' where name=" + id;
+        return getData(query, EXECUTE).toString();
+    }
+
+    public static JSONObject updateName(final String name, final String id) {
+        var query
+                = "update user.profile set content='" + name + "' where element='name' and section='" + id + "'";
+        return getData(query, EXECUTE);
+    }
+
+    public static JSONObject unlock(final String id) {
+        var queryLoc = "select locked from user.user where name=" + id;
+        var locked = getData(queryLoc, PULL_STRING).getString(MESSAGE);
+        var query = "update user.user set locked='' where name=" + Integer.parseInt(id);
+        var result = getData(query, EXECUTE);
+        result.put("locked", locked);
+        return result;
+    }
+
     public static String getProject(final String token){
         String result = "";
-        String url = Helper.getUrl("backend.url") + "middle/auth?token=" + token;
+    //    String url = Helper.getUrl("backend.url") + "middle/auth?token=" + token;
+        String url = Helper.getUrl("auth.url") + "/auth?token=" + token;
         try {
             var res = HttpClient.sendHttpsPost(new JSONObject(), url).getJSONObject("profile");
             result = res.getJSONObject("profile").getJSONObject(MESSAGE).getString("name");
@@ -341,15 +509,58 @@ public class QueryHelper {
         return getIdByName(getProject(token));
     }
 
+    public static boolean isAdmin(final String id) {
+        var query = "select admin from amds.admintable where id='" + id + "'";
+        var result = getData(query, "pull-string");
+        return result.has("message") && result.getString("message").equals("1");
+    }
+    private static String vetName(final String name) {
+        if (name.contains(" ")) {
+            return "\"" + name + "\"";
+        } else return name;
+    }
+
+    public static JSONArray getUsers() {
+        var query = "select section,content from user.profile where element='name'";
+        return getData(query, PULL_TABLE).getJSONArray(MESSAGE);
+    }
+
+    public static JSONArray getUsersByName(final String name) {
+        var query
+                = "select section,content from user.profile where element='name' and content like '%" + name + "%'";
+        return getData(query, PULL_TABLE).getJSONArray(MESSAGE);
+    }
+
     public static String getIdByName(final String name){
         String result = "";
-        String url = Helper.getUrl("user.url") + "user-id?name=" + name;
+
+        String url = Helper.getUrl("user.url") + "/user-id?name=" + vetName(name);
         try {
             result = HttpClient.sendGet(url,new HashMap<>()).getString(MESSAGE);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return result;
+    }
+    private static Map<String, String> names = new HashMap<>();
+
+    public static String getNameById(final String id){
+        String result = "";
+        if (!names.containsKey(id)) {
+             String url = Helper.getUrl("user.url") + "/username?id=" + id;
+            try {
+                result = HttpClient.sendGet(url,new HashMap<>()).getString(MESSAGE);
+                names.put(id, result);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+        } else {
+            result = names.get(id);
+        }
+
         return result;
     }
 
