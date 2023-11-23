@@ -1,11 +1,13 @@
 package com.utils;
 
 import com.utils.data.HttpClient;
-import com.utils.data.Logger;
-import com.utils.data.QueryHelper;
+ import com.utils.data.QueryHelper;
 import com.utils.enums.JsonHelper;
+import com.utils.excel.DupeList;
+import com.utils.test.DataSort;
 import org.apache.commons.io.FileUtils;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -17,16 +19,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+
 
 public class AmdsHelper {
     public static final String PULL_LIST = "pull-list";
     public static final String PULL_STRING = "pull-string";
     public static final String PULL_TABLE = "pull-table";
     public static final String MESSAGE = "message";
+    public static final String ROW_NAME = "row_name";
     public static final String EXTENSION = ".xlsx";
+    private static final String INFO_ROW = "info_row";
+
     public static String getTableName(final String tableId) {
         final String query = "select name from amds.sheets where id='" + tableId + "'";
         return normalizeTable(QueryHelper.getData(query, PULL_STRING).getString(MESSAGE));
@@ -83,29 +86,75 @@ public class AmdsHelper {
     }
 
 
+
     public static String getAdminColumns(final String sheetId) {
         final var query = "select user from amds.sheets where id=" + sheetId;
         var cols = QueryHelper.getData(query, PULL_STRING);
         var colString = (cols.has(MESSAGE)) ? cols.getString(MESSAGE) : "";
         return deductList(colString, getColumns(sheetId)).replace("row_name,", "");
     }
+    public static UsefulBoolean adminColumnsIntact(final JSONArray newTable,
+                                                   final String sheetId, final String userId) {
+        var adminCols = "row_name," + AmdsHelper.getAdminColumns(sheetId);
+        var sheetName = getTableName(sheetId);
+        var selQuery = "select " + adminCols + " from amds." + sheetName + " where user_id='" + userId + "'";
+        var oldTable = QueryHelper.getData(selQuery, PULL_TABLE).getJSONArray(MESSAGE);
 
-    public static boolean adminColumnsIntact(final JSONArray oldTable,
-                                             final JSONArray newTable, final String adminCols) {
-        TestHelper.sleep(10);
         for (var i = 0; i < newTable.length(); i++) {
             for (var key : newTable.getJSONObject(i).keySet()) {
                 if (oldTable.getJSONObject(i).has(key)) {
-                    if (!oldTable.getJSONObject(i).getString(key).equals(newTable.getJSONObject(i).getString(key))) {
-                        return false;
+                    if (!oldTable.getJSONObject(i).getString(key).equals(newTable.getJSONObject(i).getString(key))
+                            && List.of(adminCols.split(",")).contains(key)) {
+                        return new UsefulBoolean(false, "row: " + i + " column: " + key + " new value: "
+                                + newTable.getJSONObject(i).getString(key));
                     }
                 } else if (List.of(adminCols.split(",")).contains(key)
                         && Helper.isThing(newTable.getJSONObject(i).getString(key))) {
-                    return false;
+                    return new UsefulBoolean(false, "row: " + i + " column: " + key);
                 }
             }
         }
-        return true;
+        return new UsefulBoolean(true, "");
+
+    }
+
+
+    private static boolean entryExistButShouldNot(final String column, final String value, final String sheetName) {
+        final List<String> booleanSheets = new ArrayList<>() {{
+            add("5");
+            add("13");
+        }};
+        if (column.equals(ROW_NAME)) {
+            return false;
+        } else if (booleanSheets.contains(sheetName)) {
+            return value.equals("y");
+        } else {
+            return Helper.isThing(value);
+        }
+    }
+
+    public static UsefulBoolean adminColumnsIntact(final JSONArray oldTable,
+                                                    final JSONArray newTable,
+                                                   final String adminColumns, final String sheetId) {
+        TestHelper.sleep(10);
+        var adminCols = adminColumns.replace("row_name,", "");
+        for (var i = 0; i < newTable.length(); i++) {
+            for (var key : newTable.getJSONObject(i).keySet()) {
+                if (oldTable.length() > i && oldTable.getJSONObject(i).has(key)) {
+                    if (!oldTable.getJSONObject(i).getString(key).equals(newTable.getJSONObject(i).getString(key))
+                    && List.of(adminCols.split(",")).contains(key)) {
+                        return new UsefulBoolean(false, "row: " + i + " column: " + key + " new value: "
+                                + newTable.getJSONObject(i).getString(key));
+                    }
+                } else if (List.of(adminCols.split(",")).contains(key)
+                        && entryExistButShouldNot(key, newTable.getJSONObject(i).getString(key), sheetId)
+                      //  Helper.isThing(newTable.getJSONObject(i).getString(key))
+                ) {
+                    return new UsefulBoolean(false, "row: " + i + " column: " + key);
+                }
+            }
+        }
+        return new UsefulBoolean(true, "");
     }
 
 
@@ -122,6 +171,13 @@ public class AmdsHelper {
 
     public static String getAmdsFilesPathByName(final String name, final String userId) {
         return TestHelper.getSameLevelProject("files") + "/"
+                + name
+                + "_"
+                + userId
+                + EXTENSION;
+    }
+    public static String getAmdsFilesPathForDownload(final String name, final String userId) {
+        return TestHelper.getSameLevelProject("files/download") + "/"
                 + name
                 + "_"
                 + userId
@@ -251,15 +307,205 @@ public class AmdsHelper {
         return path;
     }
 
+    private static List<Integer> getDateColumns(final List<String> columns) {
+        List<Integer> result = new ArrayList<>();
+        List<String> dateNames = new ArrayList<>() {{
+            add("date");
+            add("observed");
+            add("from");
+            add("to");
+        }};
+        var count = 0;
+        for (var column : columns) {
+            if (dateNames.contains(column)) {
+                result.add(count);
+            }
+            count++;
+        }
+        return result;
+    }
+
+    private static String getCelContent(final String modelRowName,
+                                        final JSONArray table,
+                                        final String column,
+                                        final boolean info) {
+        var content = "";
+        var found = 0;
+        boolean dupe = DupeList.isDupe(modelRowName);
+        if (dupe) {
+            found++;
+        }
+
+        var met = DupeList.howManyMet(modelRowName);
+        if (column.equals(ROW_NAME)) {
+            content = modelRowName;
+            DupeList.dupeMet(modelRowName);
+
+        } else if (!info) {
+            outerLoop:
+            for (var i = 0; i < table.length(); i++) {
+                var row = table.getJSONObject(i);
+                var rowName = row.getString(ROW_NAME);
+
+                var toProcess = !dupe || (found == met);
+                if (i == 181)
+                    System.out.println(i);
+                //check if the current row is what we need.
+                if (rowName.equals(modelRowName)) {
+                    //skip if already met
+                    if (toProcess) {
+                        for (var col : row.keySet()) {
+                            if (col.equals(column)) {
+                                content = row.getString(col);
+                                break outerLoop;
+                            }
+                        }
+
+                    }
+                    found++;
+                }
+
+            }
+        }
+
+        return content;
+    }
+
+    private static String getContent(final JSONObject row, final String column) {
+        try {
+            return row.getString(column);
+        } catch (JSONException e) {
+            return "";
+        }
+
+    }
+
+    /**
+     * This method saves page data into excel file
+     * @param id String sheetId
+     * @param data - JSONArray of sheet data
+     * @param managerId - String userId
+     */
+    public static void saveUserSheet(final String id, final JSONObject data, final String managerId) {
+        final var name = getTableName(id);
+        final var isAdmin = QueryHelper.isAdmin(managerId);
+        List<String> columns = new ArrayList<>(List.of(getColumns(id).split(",")));
+        var rowModel = QueryHelper.getRowsModel(Integer.parseInt(id)).getJSONArray(MESSAGE);
+        checkModelForeDupes(rowModel);
+        var dateColumns = getDateColumns(columns);
+        columns.add("user_id");
+        var dataArray = data.getJSONArray("message");
+        var fullArray = DataSort.getSortedArray(dataArray, rowModel);
+
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet(name);
+        sheet.protectSheet("aksjdwdkz28");
+        CellStyle dateCellStyle = workbook.createCellStyle();
+        dateCellStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("yyyy-MM-dd"));
+        CellStyle infoCellStyle = workbook.createCellStyle();
+        infoCellStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        infoCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        CellStyle headerCellStyle = workbook.createCellStyle();
+        headerCellStyle.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
+        headerCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        CellStyle lockedCellStyle = workbook.createCellStyle();
+        lockedCellStyle.setLocked(false);
+        var adminColumns = List.of(getAdminColumns(id).split(","));
+
+        Row header = sheet.createRow(0);
+        var ci = 0;
+        for (var col: columns) {
+            Cell head = header.createCell(ci);
+            head.setCellStyle(headerCellStyle);
+            head.setCellValue(col);
+
+            ci++;
+        }
+
+
+
+        for (var i = 0; i < rowModel.length(); i++) {
+            if (i == 137) {
+                System.out.println(i);
+
+            }
+            var rowName = rowModel.getJSONObject(i).getString(ROW_NAME);
+
+
+            var info = rowModel.getJSONObject(i).getString(INFO_ROW).equals("1");
+            Row row = sheet.createRow(i + 1);
+            var count = 0;
+            for (var col : columns) {
+
+               // var content = getCelContent(rowName, dataArray, col, info);
+                var content = getContent(fullArray.getJSONObject(i), col);
+                Cell cell = row.createCell(count);
+                if (info) {
+                    cell.setCellStyle(infoCellStyle);
+
+                } else if (dateColumns.contains(count)) {
+                    cell.setCellStyle(dateCellStyle);
+                }
+
+
+
+                cell.setCellValue(content);
+
+                if (!info && (isAdmin || !adminColumns.contains(col)) && !col.equals(ROW_NAME)) {
+                    cell.setCellStyle(lockedCellStyle);
+                }
+                count++;
+            }
+
+
+
+        }
+            for (var l = 0; l < columns.size(); l++) {
+                sheet.autoSizeColumn(l);
+            }
+
+
+
+            try (FileOutputStream outputStream = new FileOutputStream(getAmdsFilesPath(name))) {
+                workbook.write(outputStream);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+
+    }
+
+    /**
+     * *
+     * this method populate a list of duplicates with the number of dupes for each entry
+     * @see DupeList class with static list of dupes with number of repetitions for each dupe
+     * @param model JSONArray containing the compentency table model to check
+     */
+    private static void checkModelForeDupes(final JSONArray model) {
+        DupeList.unload();
+        for (var i = 0; i < model.length(); i++) {
+            var rowName = model.getJSONObject(i).getString(ROW_NAME);
+            var infoRow = model.getJSONObject(i).getString(INFO_ROW).equals("1");
+
+            if (!infoRow)
+            DupeList.checkEntry(rowName);
+        }
+    }
+
     public static void saveSheet(final String id, final JSONObject data, final String userId) {
         final var name = getTableName(id);
         var userName = (Helper.isThing(userId)) ? QueryHelper.getNameById(userId) : null;
         List<String> columns = new ArrayList<>(List.of(getColumns(id).split(",")));
+        var dateColumns = getDateColumns(columns);
         columns.add("user_id");
         var dataArray = data.getJSONArray("message");
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet(name);
-
+        CellStyle dateCellStyle = workbook.createCellStyle();
+        dateCellStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("yyyy-MM-dd"));
         Row header = sheet.createRow(0);
         var ci = 0;
         for (var col: columns) {
@@ -284,11 +530,14 @@ public class AmdsHelper {
                 if (count == (columns.size() - 1)) {
                     value = QueryHelper.getNameById(value);
                 }
+                if (dateColumns.contains(count)) {
+                    cell.setCellStyle(dateCellStyle);
+
+                }
                 cell.setCellValue(value);
                 count++;
             }
-//            Cell cell = row.createCell(count + 1);
-//            cell.setCellValue(userId);
+
         }
 
         try (FileOutputStream outputStream = new FileOutputStream(getAmdsFilesPath(name))) {
@@ -323,6 +572,8 @@ public class AmdsHelper {
             var j = 0;
 
             for (var column : cols) {
+                var rw = data.getJSONObject(i);
+                var tp = rw.get(column) instanceof String;
                     var value =  data.getJSONObject(i).getString(column).replace('\uF06E', '\0')
                         .replace("'", "''");
                     row = row + "'" + value + "',";

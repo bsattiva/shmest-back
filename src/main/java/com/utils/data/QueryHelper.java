@@ -28,8 +28,8 @@ public class QueryHelper {
     private static final String MESSAGE = "message";
     private static final String STATUS = "status";
     private static final String PULL_STRING = "pull-string";
-    private static final String PULL_TABLE = "pull-table";
-    private static final String PULL_LIST = "pull-list";
+    public static final String PULL_TABLE = "pull-table";
+    public static final String PULL_LIST = "pull-list";
     private static final String EXECUTE = "execute";
     private static final String SUCCESS = "success";
     public static final String SEED = "sdk^sirhf87w8e6! djdsdghxz78 hdhdhd&&&&&&&& shd";
@@ -40,13 +40,15 @@ public class QueryHelper {
     private static final String RUN_ID = "runId";
     private static final String STEP_ID = "stepId";
     private static final int MAX_RECORDS = 20;
-    public static JSONObject getData(final String query,final String type){
+    private static final String MASK = "?";
+
+    public static JSONObject getData(final String query, final String type){
         JSONObject object = new JSONObject("{}");
-        object.put("query",query);
-        object.put("type",type);
-        object.put("secret",SECRET);
+        object.put("query", query);
+        object.put("type", type);
+        object.put("secret", SECRET);
         String url = Helper.getStringFromProperties(Helper.getHomeDir(new String[]{"config.properties"}),"data.url");
-        return HttpClient.sendHttpsPost(object,url);
+        return HttpClient.sendHttpsPost(object, url);
     }
 
     public static JSONObject postData(final String url, final JSONObject object){
@@ -71,6 +73,57 @@ public class QueryHelper {
         getData(Helper.completeString(QUESTION_MASK,
                 query,new String[]{project, Area.LOGGING.label, message}), EXECUTE);
 
+    }
+
+    private static String getNonEmptyQueryBit(final String columns) {
+        var cols = columns.split(",");
+        var builder = new StringBuilder();
+        var temp = "a.? is not null and a.?!=''";
+        var i = 0;
+        for (var col : cols) {
+            builder.append(temp.replace(MASK, col));
+            if (i < cols.length - 1) {
+                builder.append(" or ");
+            }
+            i++;
+        }
+         return builder.toString();
+    }
+
+    public static List<String> getApplicableUsers(final String sheetId, final String sheetName) {
+        var columns = AmdsHelper.getColumns(sheetId);
+
+        var query = "select b.section from amds.? a join user.profile b on a.user_id=b.section where "
+                .replace(MASK, sheetName)
+                + getNonEmptyQueryBit(columns);
+
+        var users = getData(query, PULL_LIST).getJSONArray(MESSAGE);
+        List<String> userList = new ArrayList<>();
+        for (var i = 0; i < users.length(); i++) {
+            if (!userList.contains(users.getString(i))) {
+                userList.add(users.getString(i));
+            }
+        }
+        return userList;
+    }
+
+
+
+    public static int getSheetIdByExcelName(final String name) {
+        var fileName = name.split(" for user")[0];
+        return getSheetIdByName(fileName);
+    }
+
+    public static int getSheetIdByName(final String name) {
+        final var query = "select id from amds.sheets where mask_name='" + name + "'";
+        var idString = getData(query, PULL_STRING).getString(MESSAGE);
+        return Integer.parseInt(idString);
+    }
+
+
+    public static JSONObject getRowsModel(final int sheetId) {
+        var query = "select row_name,seq,info_row,sheet_id from amds.sheet_model where sheet_id=" + sheetId;
+        return getData(query, PULL_TABLE);
     }
 
     public static List<String> getAmdsDisabledSheets(final String userId) {
@@ -126,32 +179,7 @@ public class QueryHelper {
     }
 
     public static void main(String[] args) {
-     //   System.out.println(getEmailById("27"));
-       // System.out.println(getEmailById("28"));
-     //   System.out.println(getEmailById("29"));
-     //   System.out.println(getEmailById("30"));
-     //   System.out.println(getEmailById("31"));
-    //    System.out.println(getEmailById("32"));
-//        System.out.println(getEmailById("33"));
-//        System.out.println(getEmailById("34"));
-//        System.out.println(getEmailById("35"));
-//        System.out.println(getEmailById("36"));
-//        System.out.println(getEmailById("37"));
-//        System.out.println(getEmailById("38"));
-//        System.out.println(getEmailById("39"));
-//        System.out.println(getEmailById("40"));
-//        System.out.println(getEmailById("41"));
-//        System.out.println(getEmailById("42"));
-//        System.out.println(getEmailById("42"));
-//        System.out.println(getEmailById("43"));
-//        System.out.println(getEmailById("44"));
-//        System.out.println(getEmailById("1334"));
-//        System.out.println(getEmailById("1334"));
-        System.out.println(getEmailById("47"));
-        System.out.println(getEmailById("48"));
-        System.out.println(getEmailById("49"));
-        System.out.println(getEmailById("1123"));
-
+        getApplicableUsers("6", "philips_mri_competencies");
     }
 
     public static String getPasswordlById(final String id) {

@@ -3,11 +3,13 @@ package com.testshmestservice.testshmestservice.controller;
 import com.enums.Area;
 import com.utils.AmdsHelper;
 import com.utils.FileHelper;
+import com.utils.FileReader;
 import com.utils.Helper;
 import com.utils.HtmlHelper;
 import com.utils.PdfHelper;
 import com.utils.RequestHelper;
 import com.utils.TestHelper;
+import com.utils.UsefulBoolean;
 import com.utils.command.CommandRunner;
 import com.utils.data.QueryHelper;
 import com.utils.enums.JsonHelper;
@@ -21,16 +23,21 @@ import org.json.JSONObject;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.ContentDisposition;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import com.report.Step;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +51,8 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -478,6 +487,55 @@ public class TestStartController {
         return null;
     }
 
+    @GetMapping("/amds-download-page")
+    ResponseEntity<Resource> amdsDownloadPage(final HttpServletRequest request,
+                                              final HttpServletResponse response) throws MalformedURLException {
+        var token = request.getHeader(TOKEN);
+        var managedToken = request.getHeader(USER_TOKEN);
+        var sheetId = request.getParameter(ID);
+
+        var managedId = TestHelper.getManagedUserId(token, managedToken);
+
+
+        String contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            var query = AmdsHelper.getSheetQuery(sheetId);
+            if (Helper.isThing(managedId)) {
+                try {
+                    query = AmdsHelper.getSheetQuery(sheetId, managedId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+
+            var data = QueryHelper.getData(query, PULL_TABLE);
+
+            AmdsHelper.saveUserSheet(sheetId, data, QueryHelper.getIdByToken(token));
+            Path fileDirectory = Paths.get(AmdsHelper.getAmdsFilesPath(AmdsHelper.getTableName(sheetId)));
+            Path filePath = fileDirectory.resolve(AmdsHelper.getAmdsFilesPath(AmdsHelper.getTableName(sheetId)));
+            var resource = new UrlResource(filePath.toUri());
+
+            String disposition = "attachment; filename=" + resource.getFilename();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Content-Security-Policy", "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'inline-speculation-rules'");
+            headers.setContentType(MediaType.parseMediaType(contentType));
+            headers.setContentDisposition(ContentDisposition.builder("attachment")
+                    .filename(Objects.requireNonNull(resource.getFilename()))
+                    .build());
+
+
+            return ResponseEntity.ok().headers(headers).body(resource);
+
+        } else {
+            response.setStatus(403);
+        }
+
+        return null;
+    }
+
+
+
     @GetMapping("/download")
     ResponseEntity<Resource>  download(final HttpServletRequest request,
                                        final HttpServletResponse response) throws MalformedURLException {
@@ -543,8 +601,14 @@ public class TestStartController {
     String getAmdsSheet(final HttpServletRequest request, final HttpServletResponse response) {
 
         var token = request.getHeader(TOKEN);
+        var userToken = request.getHeader(USER_TOKEN);
         var sheetId = request.getParameter(ID);
         var userId = QueryHelper.getIdByToken(token);
+        if (QueryHelper.isAdmin(userId)) {
+            if (Helper.isThing(userToken) && !userToken.equalsIgnoreCase("null")) {
+                userId = QueryHelper.getIdByToken(userToken);
+            }
+        }
         var query = AmdsHelper.getSheetQuery(sheetId, userId);
         return QueryHelper.getData(query, PULL_TABLE).toString();
     }
@@ -591,6 +655,54 @@ public class TestStartController {
         }
     }
 
+    @PostMapping("/amds-upload")
+    public String uploadFile(Model model, @RequestParam("file") MultipartFile file, HttpServletRequest request) throws IOException {
+        InputStream in = file.getInputStream();
+        File currDir = new File(".");
+        String path = currDir.getAbsolutePath();
+        var sheetId = request.getParameter("id");
+        var id = QueryHelper.getIdByToken(request.getHeader("token"));
+
+        var managedId = (Helper.isThing(request.getHeader("user_token")))
+                ? QueryHelper.getIdByToken(request.getHeader("user_token")) : "";
+        var adminIntactOrIAdmin = true;
+
+        var fileLocation = path.substring(0, path.length() - 1) + file.getOriginalFilename();
+
+        FileOutputStream f = new FileOutputStream(fileLocation);
+        int ch = 0;
+        while ((ch = in.read()) != -1) {
+            f.write(ch);
+        }
+        f.flush();
+        f.close();
+      //  var sheetId = QueryHelper.getSheetIdByExcelName(Objects.requireNonNull(file.getOriginalFilename()));
+
+        model.addAttribute("message", "File: " + file.getOriginalFilename()
+                + " has been uploaded successfully!");
+
+        var array = FileReader.persistExcel(fileLocation, Integer.parseInt(sheetId), id).getJSONArray(MESSAGE);
+        var savedFile = new File(fileLocation);
+//        if (savedFile.exists())
+//            savedFile.delete();
+        if (!QueryHelper.isAdmin(id)) {
+            adminIntactOrIAdmin = AmdsHelper.adminColumnsIntact(array, sheetId, id).isOk();
+
+        }
+
+        if (adminIntactOrIAdmin) {
+            var userId = (Helper.isThing(managedId)) ? managedId : id;
+            var delQuery = "delete from amds."
+                    + AmdsHelper.getTableName(Integer.toString(Integer.parseInt(sheetId))) + " where user_id='" + userId + "'";
+            QueryHelper.getData(delQuery, "execute");
+            var query = AmdsHelper.createSheetPopulateQuery(sheetId, userId, array);
+            return QueryHelper.getData(query, "execute").toString();
+
+        } else {
+            return new JSONObject(MESSAGE, "something went wrong").toString();
+
+        }
+    }
 
     @PostMapping("/amds_create_sheet")
     String createAmdsSheet(final HttpServletRequest request, final HttpServletResponse response) {
@@ -600,7 +712,13 @@ public class TestStartController {
         var token = object.getString(TOKEN);
         var userToken = ((object.has(USER_TOKEN)) && object.get(USER_TOKEN) instanceof String) ? object.getString(USER_TOKEN) : "";
 
-        var sheetId = object.getString(ID);
+        var sheetId = "";
+        if (object.get(ID) instanceof String) {
+           sheetId = object.getString(ID);
+        } else {
+            sheetId = Integer.toString(object.getInt(ID));
+
+        }
         var sheetName = AmdsHelper.getTableName(sheetId);
 
         var userId = QueryHelper.getIdByToken(token);
@@ -611,13 +729,14 @@ public class TestStartController {
             var selQuery = "select " + adminCols + " from amds." + sheetName + " where user_id='" + managedId + "'";
             var obj = new JSONObject();
             var table = object.getJSONArray("table");
-            var adminIntact = true;
+            var adminIntact = new UsefulBoolean();
             if (!isAdmin) {
                 obj = QueryHelper.getData(selQuery, PULL_TABLE);
                 var old = (obj.has(MESSAGE)) ? obj.getJSONArray(MESSAGE) : new JSONArray();
-                adminIntact = AmdsHelper.adminColumnsIntact(old, table, adminCols);
+                adminIntact = AmdsHelper.adminColumnsIntact(old, table, adminCols, sheetId);
+                System.out.println(adminIntact.getMessage());
             }
-            if (adminIntact) {
+            if (adminIntact.isOk()) {
                 var delQuery = "delete from amds." + sheetName + " where user_id='" + managedId + "'";
                 QueryHelper.getData(delQuery, "execute");
 
