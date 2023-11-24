@@ -655,7 +655,7 @@ public class TestStartController {
         }
     }
 
-    @PostMapping("/amds-upload")
+        @PostMapping("/amds-upload")
     public String uploadFile(Model model, @RequestParam("file") MultipartFile file, HttpServletRequest request) throws IOException {
         InputStream in = file.getInputStream();
         File currDir = new File(".");

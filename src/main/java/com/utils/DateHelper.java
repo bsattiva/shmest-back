@@ -7,7 +7,8 @@ import java.time.format.DateTimeParseException;
 
 public class DateHelper {
     public static final String DATE_FORMAT = "yyyy-MM-dd";
-    public static final String ALT_FORMAT = "dd-MMM-yyyy";
+
+    public static final String EXCEL_FORMAT = "dd-MMM-yyyy";
 
     public static UsefulBoolean formatOk(final String date) {
         if (!Helper.isThing(date))
@@ -17,7 +18,14 @@ public class DateHelper {
             formatter.parse(date);
             return new UsefulBoolean(true, date);
         } catch (DateTimeParseException e) {
-            return formatOk(date, ALT_FORMAT);
+            try {
+                var formatter = DateTimeFormatter.ofPattern(EXCEL_FORMAT);
+                LocalDate localDate = LocalDate.parse(date, formatter);
+
+                return new UsefulBoolean(true, localDate.format(DateTimeFormatter.ofPattern(DATE_FORMAT)));
+            } catch (Exception ex) {
+                return new UsefulBoolean(false, ex.getMessage());
+            }
         }
 
     }

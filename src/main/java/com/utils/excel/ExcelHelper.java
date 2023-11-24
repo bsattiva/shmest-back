@@ -1,6 +1,7 @@
 package com.utils.excel;
 
 import com.utils.AmdsHelper;
+import com.utils.Constants;
 import com.utils.Helper;
 import com.utils.data.QueryHelper;
 import com.utils.test.DataSort;
@@ -29,28 +30,38 @@ public class ExcelHelper {
     private static final String MASK = "\\?";
 
 
-    private static class Styles {
+    public static class Styles {
         private static CellStyle dateCellStyle;
         private static CellStyle infoCellStyle;
         private static CellStyle headerCellStyle;
+        private static CellStyle unlockedDateCellStyle;
 
         public static CellStyle getDateCellStyle(final Workbook workbook) {
             if (dateCellStyle == null) {
                 dateCellStyle = workbook.createCellStyle();
-                dateCellStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("yyyy-MM-dd"));
+                dateCellStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat(Constants.DATE_FORMAT ));
             }
             return dateCellStyle;
         }
 
-        public static CellStyle getInfoCellStyle(final Workbook workbook) {
-            if (dateCellStyle == null) {
-                infoCellStyle = workbook.createCellStyle();
-                infoCellStyle.setFillForegroundColor(IndexedColors.LIGHT_BLUE.getIndex());
-                infoCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        public static CellStyle getUnlockedDateCellStyle(final Workbook workbook) {
+            if (unlockedDateCellStyle == null) {
+                unlockedDateCellStyle = workbook.createCellStyle();
+                unlockedDateCellStyle
+                        .setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat(Constants.DATE_FORMAT ));
+                unlockedDateCellStyle.setLocked(false);
             }
-            return infoCellStyle;
+            return unlockedDateCellStyle;
         }
 
+        public static CellStyle getInfoCellStyle(final Workbook workbook) {
+            CellStyle infoCellStyle = workbook.createCellStyle();
+            infoCellStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            infoCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            return infoCellStyle;
+        }
+        
         private static CellStyle getHeaderCellStyle(final Workbook workbook) {
             if (headerCellStyle == null) {
                 headerCellStyle = workbook.createCellStyle();

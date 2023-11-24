@@ -24,7 +24,7 @@ public class FileReader {
     public static final String INFO_ROW = "info_row";
     public static final List<String> DATE_COLUMNS = new ArrayList<>() {{
         add("date");
-        add("observer");
+        add("observed");
         add("to");
         add("from");
     }};
@@ -44,21 +44,24 @@ public class FileReader {
 
             for (var i = 0; i < model.length(); i++) {
 
-                if (i==137)
+                var start = Integer.parseInt(stat.getMessage()) + i;
                     System.out.println();
                 if (model.getJSONObject(i).getString(INFO_ROW).equals("0")) {
                     var rowName = model.getJSONObject(i).getString(ROW_NAME);
 
-                    var row = sheet.getRow(i);
+                    var row = sheet.getRow(start);
                     var j = 0;
                     var object = new JSONObject();
                     for (var col : columns) {
 
                         Cell cell = row.getCell(j);
                         var content = cell.toString();
+                        if (col.equals("observed"))
+                            System.out.println(col);
                         if (DATE_COLUMNS.contains(col)) {
                             var format = DateHelper
                                                 .formatOk(content);
+                            content = format.getMessage();
                             if (!format.isOk()) {
                                 throw new RuntimeException(format.getMessage());
                             }
@@ -69,37 +72,6 @@ public class FileReader {
                          j++;
                     }
 
-//                    for (var j = Integer.parseInt(stat.getMessage()); j < sheet.getLastRowNum(); j++) {
-//                        if (sheet.getRow(j).getCell(0).toString().equals(rowName)) {
-//                            var object = new JSONObject();
-//                            var count = 0;
-//                            for (var column : columns) {
-//                                if (!column.equals("user_id")) {
-//                                    if (column.contains("date") || column.contains("observed")) {
-//                                        var con = sheet.getRow(j).getCell(count).toString();
-//                                        var format = DateHelper
-//                                                .formatOk(sheet.getRow(j).getCell(count).toString());
-//                                        if (!format.isOk()) {
-//                                            return new JSONObject() {{put(MESSAGE,
-//                                                    "wrong date format. shoud be 'yyyy-MM-dd'");}};
-//                                        } else {
-//                                            object.put(column, format.getMessage());
-//                                        }
-//
-//                                    } else {
-//                                        object.put(column, sheet.getRow(j).getCell(count).toString());
-//                                    }
-//
-//                                } else {
-//                                    object.put(column, userId);
-//                                }
-//
-//                                count++;
-//                            }
-//                            array.put(object);
-//                        }
-//
-//                }
                     array.put(object);
 
                 }

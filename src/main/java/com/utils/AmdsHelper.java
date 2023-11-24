@@ -4,8 +4,12 @@ import com.utils.data.HttpClient;
  import com.utils.data.QueryHelper;
 import com.utils.enums.JsonHelper;
 import com.utils.excel.DupeList;
+import com.utils.excel.ExcelHelper;
 import com.utils.test.DataSort;
 import org.apache.commons.io.FileUtils;
+import org.apache.poi.hssf.usermodel.DVConstraint;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import org.apache.poi.xssf.usermodel.XSSFDataValidationConstraint;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -15,11 +19,23 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Calendar;
+import java.util.Date;
+
+import static com.utils.DateHelper.DATE_FORMAT;
 
 public class AmdsHelper {
     public static final String PULL_LIST = "pull-list";
@@ -307,24 +323,6 @@ public class AmdsHelper {
         return path;
     }
 
-    private static List<Integer> getDateColumns(final List<String> columns) {
-        List<Integer> result = new ArrayList<>();
-        List<String> dateNames = new ArrayList<>() {{
-            add("date");
-            add("observed");
-            add("from");
-            add("to");
-        }};
-        var count = 0;
-        for (var column : columns) {
-            if (dateNames.contains(column)) {
-                result.add(count);
-            }
-            count++;
-        }
-        return result;
-    }
-
     private static String getCelContent(final String modelRowName,
                                         final JSONArray table,
                                         final String column,
@@ -348,8 +346,7 @@ public class AmdsHelper {
                 var rowName = row.getString(ROW_NAME);
 
                 var toProcess = !dupe || (found == met);
-                if (i == 181)
-                    System.out.println(i);
+
                 //check if the current row is what we need.
                 if (rowName.equals(modelRowName)) {
                     //skip if already met
@@ -378,6 +375,41 @@ public class AmdsHelper {
             return "";
         }
 
+    }
+
+    private static void applyDateValidationToColumn(Sheet sheet, final int rowCount, int columnIndex) {
+
+        CellRangeAddressList dateRange = new CellRangeAddressList(1, rowCount, columnIndex, columnIndex);
+
+        XSSFDataValidationConstraint dateConstraint = (XSSFDataValidationConstraint)
+                sheet.getDataValidationHelper().createDateConstraint(
+                        DataValidationConstraint.OperatorType.BETWEEN,
+                        "1900-01-01",
+                        "9999-12-31", DATE_FORMAT);
+
+        DataValidation dataValidation = sheet.getDataValidationHelper().createValidation(dateConstraint, dateRange);
+        dataValidation.setShowErrorBox(true);
+        sheet.addValidationData(dataValidation);
+    }
+
+    private static List<Integer> getDateColumns(final List<String> columns) {
+        var i = 0;
+        List<Integer> dateColumns = new ArrayList<>();
+        for (var column : columns) {
+            if (Constants.DATE_COLUMNS.contains(column)) {
+                dateColumns.add(i);
+            }
+            i++;
+        }
+        return dateColumns;
+    }
+
+    private static void setDataCells(Sheet sheet, final List<String> columns, final int rowsCount) {
+        var dateColumns = getDateColumns(columns);
+        var validationHelper = sheet.getDataValidationHelper();
+        for (var i : dateColumns) {
+            applyDateValidationToColumn(sheet, rowsCount, i);
+        }
     }
 
     /**
@@ -410,8 +442,9 @@ public class AmdsHelper {
         headerCellStyle.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
         headerCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-        CellStyle lockedCellStyle = workbook.createCellStyle();
-        lockedCellStyle.setLocked(false);
+        CellStyle unlockedCellStyle = workbook.createCellStyle();
+        unlockedCellStyle.setLocked(false);
+       // setDataCells(sheet, columns, rowModel.length());
         var adminColumns = List.of(getAdminColumns(id).split(","));
 
         Row header = sheet.createRow(0);
@@ -427,16 +460,14 @@ public class AmdsHelper {
 
 
         for (var i = 0; i < rowModel.length(); i++) {
-            if (i == 137) {
-                System.out.println(i);
 
-            }
             var rowName = rowModel.getJSONObject(i).getString(ROW_NAME);
 
 
             var info = rowModel.getJSONObject(i).getString(INFO_ROW).equals("1");
             Row row = sheet.createRow(i + 1);
             var count = 0;
+            LocalDate dateContent = null;
             for (var col : columns) {
 
                // var content = getCelContent(rowName, dataArray, col, info);
@@ -444,17 +475,29 @@ public class AmdsHelper {
                 Cell cell = row.createCell(count);
                 if (info) {
                     cell.setCellStyle(infoCellStyle);
-
+                    cell.setCellValue(content);
                 } else if (dateColumns.contains(count)) {
-                    cell.setCellStyle(dateCellStyle);
+                    if (Helper.isThing(content))
+                        dateContent = LocalDate.parse(content, DateTimeFormatter.ofPattern(Constants.DATE_FORMAT));
+                        cell.setCellStyle(ExcelHelper.Styles.getDateCellStyle(workbook));
+                        cell.setCellValue(dateContent);
+                } else {
+                    dateContent = null;
+                    cell.setCellValue(content);
                 }
 
 
 
-                cell.setCellValue(content);
 
-                if (!info && (isAdmin || !adminColumns.contains(col)) && !col.equals(ROW_NAME)) {
-                    cell.setCellStyle(lockedCellStyle);
+                if (isAdmin || info || !adminColumns.contains(col) || col.equals(ROW_NAME)) {
+
+                    if (dateContent != null) {
+                        cell.setCellStyle(ExcelHelper.Styles.getUnlockedDateCellStyle(workbook));
+                    } else {
+                        cell.setCellStyle(unlockedCellStyle);
+                    }
+                    if (info)
+                        cell.setCellStyle(ExcelHelper.Styles.getInfoCellStyle(workbook));
                 }
                 count++;
             }
