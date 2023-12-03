@@ -153,12 +153,29 @@ public class TestHelper {
 
     public static String getManagedUserId(final String token, final String userToken) {
         var id = QueryHelper.getIdByToken(token);
-        if (Helper.isThing(userToken) && QueryHelper.isAdmin(id)) {
+        if (Helper.isThing(userToken) && !userToken.equals("null") && QueryHelper.isAdmin(id)) {
             return QueryHelper.getIdByToken(userToken);
         }
         return id;
     }
 
+    private static String stripOdds(final String str) {
+        var accept = ".~,~:~".split("~");
+        var last = str.charAt(str.length() - 1);
+        if (Character.isAlphabetic(last) || Character.isDigit(last) || List.of(accept).contains("" + last)) {
+            return str;
+        } else {
+            return str.substring(0, str.length() - 1).trim();
+        }
+    }
+    public static boolean appxEqual(final String one, final String two) {
+
+        return stripOdds(one).equals(stripOdds(two));
+    }
+
+    public static void main(String[] args) {
+        System.out.println(appxEqual("slovo", "slovo ?"));
+    }
 
     public static boolean saveConfig(final List<String> map, final String path) {
         var ok = false;

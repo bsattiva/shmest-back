@@ -6,6 +6,7 @@ import com.utils.Helper;
 import com.utils.data.QueryHelper;
 import com.utils.test.DataSort;
 import org.apache.log4j.Logger;
+import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -35,22 +36,21 @@ public class ExcelHelper {
         private static CellStyle infoCellStyle;
         private static CellStyle headerCellStyle;
         private static CellStyle unlockedDateCellStyle;
+        private static CellStyle specialCellStyle;
 
         public static CellStyle getDateCellStyle(final Workbook workbook) {
-            if (dateCellStyle == null) {
                 dateCellStyle = workbook.createCellStyle();
                 dateCellStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat(Constants.DATE_FORMAT ));
-            }
             return dateCellStyle;
         }
 
         public static CellStyle getUnlockedDateCellStyle(final Workbook workbook) {
-            if (unlockedDateCellStyle == null) {
+
                 unlockedDateCellStyle = workbook.createCellStyle();
                 unlockedDateCellStyle
                         .setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat(Constants.DATE_FORMAT ));
                 unlockedDateCellStyle.setLocked(false);
-            }
+
             return unlockedDateCellStyle;
         }
 
@@ -60,6 +60,14 @@ public class ExcelHelper {
             infoCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
             return infoCellStyle;
+        }
+
+        public static CellStyle getSpecialCellStyle(final Workbook workbook) {
+            specialCellStyle = workbook.createCellStyle();
+            specialCellStyle.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
+            specialCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            return specialCellStyle;
         }
         
         private static CellStyle getHeaderCellStyle(final Workbook workbook) {
@@ -76,7 +84,7 @@ public class ExcelHelper {
 
     public static JSONArray getSpreadsheetData(final String fileName, final List<String> columns) {
         var array = new JSONArray();
-
+        ZipSecureFile.setMinInflateRatio(0.1);
         try {
             Workbook workbook = new XSSFWorkbook(fileName);
             Sheet sheet = workbook.getSheetAt(0);

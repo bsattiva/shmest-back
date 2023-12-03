@@ -2,6 +2,7 @@ package com.testshmestservice.testshmestservice.controller;
 
 import com.enums.Area;
 import com.utils.AmdsHelper;
+import com.utils.Constants;
 import com.utils.FileHelper;
 import com.utils.FileReader;
 import com.utils.Helper;
@@ -13,9 +14,11 @@ import com.utils.UsefulBoolean;
 import com.utils.command.CommandRunner;
 import com.utils.data.QueryHelper;
 import com.utils.enums.JsonHelper;
+import com.utils.excel.ExcelHelper;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -56,6 +59,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 @RestController
@@ -515,7 +519,7 @@ public class TestStartController {
             Path filePath = fileDirectory.resolve(AmdsHelper.getAmdsFilesPath(AmdsHelper.getTableName(sheetId)));
             var resource = new UrlResource(filePath.toUri());
 
-            String disposition = "attachment; filename=" + resource.getFilename();
+        //    String disposition = "attachment; filename=" + resource.getFilename();
 
             HttpHeaders headers = new HttpHeaders();
             headers.add("Content-Security-Policy", "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'inline-speculation-rules'");
@@ -535,7 +539,6 @@ public class TestStartController {
     }
 
 
-
     @GetMapping("/download")
     ResponseEntity<Resource>  download(final HttpServletRequest request,
                                        final HttpServletResponse response) throws MalformedURLException {
@@ -550,7 +553,7 @@ public class TestStartController {
             var query = AmdsHelper.getSheetQuery(sheetId);
             if (Helper.isThing(userId)) {
                 try {
-                     dataId = (Helper.isThing(AmdsHelper.getUserIdByEmail(userId)))
+                    dataId = (Helper.isThing(AmdsHelper.getUserIdByEmail(userId)))
                             ? AmdsHelper.getUserIdByEmail(userId) : "";
                     query = AmdsHelper.getSheetQuery(sheetId, dataId);
                 } catch (Exception e) {
@@ -579,6 +582,44 @@ public class TestStartController {
                     .build());
 
 
+            return ResponseEntity.ok().headers(headers).body(resource);
+
+        } else {
+            response.setStatus(403);
+        }
+
+        return null;
+    }
+
+
+
+    @GetMapping("/amds-download-all")
+    ResponseEntity<Resource>  downloadAll(final HttpServletRequest request,
+                                       final HttpServletResponse response) throws MalformedURLException {
+        var token = request.getHeader(TOKEN);
+        var id = QueryHelper.getIdByToken(token);
+        final var path = Constants.MAIN_RESOURCES + "total.xlsx";
+        String contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        var dataId = "";
+        if (QueryHelper.isAdmin(id)) {
+            ExcelHelper.saveMassiveExcel(path);
+            Path fileDirectory = Paths.get(path);
+            Path filePath = fileDirectory.resolve(path);
+            var resource = new UrlResource(filePath.toUri());
+            String disposition = "attachment; filename=" + resource.getFilename();
+
+            // Create response headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Content-Security-Policy", "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'inline-speculation-rules'");
+            headers.setContentType(MediaType.parseMediaType(contentType));
+            headers.setContentDisposition(ContentDisposition.builder("attachment")
+                    .filename(Objects.requireNonNull(resource.getFilename()))
+                    .build());
+
+            stopWatch.stop();
+            System.out.println("LOADING TOOK: " + stopWatch.getTime(TimeUnit.MINUTES));
             return ResponseEntity.ok().headers(headers).body(resource);
 
         } else {
@@ -656,15 +697,21 @@ public class TestStartController {
     }
 
         @PostMapping("/amds-upload")
-    public String uploadFile(Model model, @RequestParam("file") MultipartFile file, HttpServletRequest request) throws IOException {
+    public String uploadFile(Model model, @RequestParam("file") MultipartFile file,
+                             HttpServletRequest request, HttpServletResponse response) throws IOException {
         InputStream in = file.getInputStream();
         File currDir = new File(".");
         String path = currDir.getAbsolutePath();
         var sheetId = request.getParameter("id");
+        var usToken = (Helper.isThing(request.getParameter("userToken")))
+                ? request.getParameter("userToken").replace(" ", "+") : "";
+            System.out.println("USER TOKEN AS PARAM: " + usToken);
         var id = QueryHelper.getIdByToken(request.getHeader("token"));
-
-        var managedId = (Helper.isThing(request.getHeader("user_token")))
-                ? QueryHelper.getIdByToken(request.getHeader("user_token")) : "";
+            System.out.println("MAIN ID: " + id);
+            System.out.println("USER_TOKEN: " + request.getHeader("user_token"));
+        var managedId = (Helper.isThing(usToken))
+                ? QueryHelper.getIdByToken(usToken) : "";
+            System.out.println("MANAGED_ID: " + managedId);
         var adminIntactOrIAdmin = true;
 
         var fileLocation = path.substring(0, path.length() - 1) + file.getOriginalFilename();
@@ -696,11 +743,14 @@ public class TestStartController {
                     + AmdsHelper.getTableName(Integer.toString(Integer.parseInt(sheetId))) + " where user_id='" + userId + "'";
             QueryHelper.getData(delQuery, "execute");
             var query = AmdsHelper.createSheetPopulateQuery(sheetId, userId, array);
-            return QueryHelper.getData(query, "execute").toString();
+            System.out.println(query);
+            var status = QueryHelper.getData(query, "execute").toString();
+            System.out.println(status);
+            return status;
 
         } else {
+            response.setStatus(403);
             return new JSONObject(MESSAGE, "something went wrong").toString();
-
         }
     }
 

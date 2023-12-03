@@ -20,20 +20,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.Calendar;
-import java.util.Date;
 
 import static com.utils.DateHelper.DATE_FORMAT;
 
@@ -119,8 +110,20 @@ public class AmdsHelper {
         for (var i = 0; i < newTable.length(); i++) {
             for (var key : newTable.getJSONObject(i).keySet()) {
                 if (oldTable.getJSONObject(i).has(key)) {
+                    var oldCol = oldTable.getJSONObject(i).getString(key);
+                    var newCol = newTable.getJSONObject(i).getString(key);
+                //    if (!TestHelper.appxEqual(oldCol, newCol)) {
                     if (!oldTable.getJSONObject(i).getString(key).equals(newTable.getJSONObject(i).getString(key))
                             && List.of(adminCols.split(",")).contains(key)) {
+
+                        System.out.println("OLD TABLE:");
+                        System.out.println();
+                        System.out.print(oldTable.getJSONObject(i).toString(5));
+                        System.out.println("NEW TABLE:");
+                        System.out.println();
+                        System.out.print(newTable.getJSONObject(i).toString(5));
+                        System.out.println(i);
+
                         return new UsefulBoolean(false, "row: " + i + " column: " + key + " new value: "
                                 + newTable.getJSONObject(i).getString(key));
                     }
@@ -465,6 +468,7 @@ public class AmdsHelper {
 
 
             var info = rowModel.getJSONObject(i).getString(INFO_ROW).equals("1");
+            var special = rowModel.getJSONObject(i).getString(INFO_ROW).equals("2");
             Row row = sheet.createRow(i + 1);
             var count = 0;
             LocalDate dateContent = null;
@@ -474,11 +478,15 @@ public class AmdsHelper {
                 var content = getContent(fullArray.getJSONObject(i), col);
                 Cell cell = row.createCell(count);
                 if (info) {
-                    cell.setCellStyle(infoCellStyle);
+                    cell.setCellStyle(ExcelHelper.Styles.getInfoCellStyle(workbook));
                     cell.setCellValue(content);
+                } else if (special) {
+                    cell.setCellStyle(ExcelHelper.Styles.getSpecialCellStyle(workbook));
+                    cell.setCellValue(content);
+
                 } else if (dateColumns.contains(count)) {
                     if (Helper.isThing(content))
-                        dateContent = LocalDate.parse(content, DateTimeFormatter.ofPattern(Constants.DATE_FORMAT));
+                        dateContent = DateHelper.parseDate(content);
                         cell.setCellStyle(ExcelHelper.Styles.getDateCellStyle(workbook));
                         cell.setCellValue(dateContent);
                 } else {
@@ -498,6 +506,8 @@ public class AmdsHelper {
                     }
                     if (info)
                         cell.setCellStyle(ExcelHelper.Styles.getInfoCellStyle(workbook));
+                    if (special)
+                        cell.setCellStyle(ExcelHelper.Styles.getSpecialCellStyle(workbook));
                 }
                 count++;
             }
@@ -505,6 +515,46 @@ public class AmdsHelper {
 
 
         }
+        LocalDate dateContent = null;
+        if (Constants.NO_MODEL_SHEETS.contains(id)) {
+            for (var i = 0; i < data.getJSONArray(MESSAGE).length(); i++) {
+                var rowObject = data.getJSONArray(MESSAGE).getJSONObject(i);
+                var row = sheet.createRow(i + 1);
+                var j = 0;
+                for (var col : columns) {
+                    var content = getContent(rowObject, col);
+                    Cell cell = row.createCell(j);
+                    if (dateColumns.contains(j)) {
+                        if (Helper.isThing(content))
+                            dateContent = DateHelper.parseDate(content);
+                        cell.setCellStyle(ExcelHelper.Styles.getDateCellStyle(workbook));
+                        cell.setCellValue(dateContent);
+                    } else {
+                        dateContent = null;
+                        cell.setCellValue(content);
+                    }
+
+
+
+
+                    if (isAdmin || !adminColumns.contains(col)) {
+
+                        if (dateContent != null) {
+                            cell.setCellStyle(ExcelHelper.Styles.getUnlockedDateCellStyle(workbook));
+                        } else {
+                            cell.setCellStyle(unlockedCellStyle);
+                        }
+
+                    }
+                    j++;
+                }
+
+                }
+
+
+
+        }
+
             for (var l = 0; l < columns.size(); l++) {
                 sheet.autoSizeColumn(l);
             }

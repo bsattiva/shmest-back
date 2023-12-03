@@ -3,6 +3,7 @@ package com.utils;
 import com.itextpdf.text.Element;
 import com.itextpdf.text.FontFactory;
 import com.itextpdf.text.Paragraph;
+import org.apache.poi.openxml4j.util.ZipSecureFile;
 import com.utils.data.QueryHelper;
 import io.cucumber.java.sl.In;
 import org.apache.poi.ss.usermodel.Cell;
@@ -29,6 +30,7 @@ public class FileReader {
         add("from");
     }};
     public static JSONObject persistExcel(final String fileName, final int sheetId, final String userId) throws IOException {
+        ZipSecureFile.setMinInflateRatio(0.001);
         var array = new JSONArray();
         var rowModel = QueryHelper.getRowsModel(sheetId);
 
@@ -46,6 +48,8 @@ public class FileReader {
 
                 var start = Integer.parseInt(stat.getMessage()) + i;
                     System.out.println();
+                    if (model.getJSONObject(i).getString(ROW_NAME).startsWith("Preset protocol database."))
+                        System.out.println();
                 if (model.getJSONObject(i).getString(INFO_ROW).equals("0")) {
                     var rowName = model.getJSONObject(i).getString(ROW_NAME);
 
@@ -56,9 +60,8 @@ public class FileReader {
 
                         Cell cell = row.getCell(j);
                         var content = cell.toString();
-                        if (col.equals("observed"))
-                            System.out.println(col);
-                        if (DATE_COLUMNS.contains(col)) {
+
+                        if (Constants.DATE_COLUMNS.contains(col)) {
                             var format = DateHelper
                                                 .formatOk(content);
                             content = format.getMessage();
@@ -78,6 +81,44 @@ public class FileReader {
 
             }
             return new JSONObject() {{put(MESSAGE, array);}};
+        } else {
+            if (Constants.NO_MODEL_SHEETS.contains(Integer.toString(sheetId))) {
+                var model = rowModel.getJSONArray(MESSAGE);
+                Workbook workbook = new XSSFWorkbook(fileName);
+                Sheet sheet = workbook.getSheetAt(0);
+                var columns = AmdsHelper.getColumns(Integer.toString(sheetId)).split(",");
+                var stat = schemaOk(columns, sheet);
+                if (!stat.isOk()) {
+                    throw new RuntimeException(stat.getMessage() + sheetId);
+                }
+                for (var i = 0; i < Constants.NO_MODEL_LINES.get(Integer.toString(sheetId)); i++) {
+                    var row = sheet.getRow(Integer.parseInt(stat.getMessage()) + i);
+                    var j = 0;
+                    var object = new JSONObject();
+                    for (var col : columns) {
+
+                        Cell cell = row.getCell(j);
+                        var content = cell.toString();
+
+                        if (Constants.DATE_COLUMNS.contains(col)) {
+                            var format = DateHelper
+                                    .formatOk(content);
+                            content = format.getMessage();
+                            if (!format.isOk()) {
+                                throw new RuntimeException(format.getMessage());
+                            }
+
+                        }
+                        object.put(col, content);
+                        j++;
+                    }
+                    array.put(object);
+                }
+
+
+                return new JSONObject() {{put(MESSAGE, array);}};
+            }
+
         }
         return new JSONObject() {{put("message", "unknown table");}};
     }

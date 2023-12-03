@@ -10,6 +10,7 @@ public class DateHelper {
 
     public static final String EXCEL_FORMAT = "dd-MMM-yyyy";
 
+
     public static UsefulBoolean formatOk(final String date) {
         if (!Helper.isThing(date))
             return new UsefulBoolean(true, "");
@@ -44,5 +45,14 @@ public class DateHelper {
 
     }
 
+    public static LocalDate parseDate(final String date) {
+        LocalDate localDate = null;
+        try {
+            localDate = LocalDate.parse(date, DateTimeFormatter.ofPattern(DATE_FORMAT));
+        } catch (Exception e) {
+            localDate = LocalDate.parse(date, DateTimeFormatter.ofPattern(EXCEL_FORMAT));
+        }
+        return localDate;
+    }
 
 }
