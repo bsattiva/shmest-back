@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 
 public class TestHelper {
     private static final String TESTS = "children";
+    private static final String SECTION = "section";
     private static final String ROW_NAME = "row_name";
     private static final String INFO_ROW = "info_row";
     private static final String ARGUMENTS = "arguments";
@@ -251,6 +252,21 @@ public class TestHelper {
 
         }
         return newArray;
+    }
+
+
+    public static JSONArray dedupe(final JSONArray data) {
+        var ignored = QueryHelper.getIgnored();
+        var array = new JSONArray();
+        List<String> list = new ArrayList<>();
+        for (var i = 0; i < data.length(); i++) {
+            var obj = data.getJSONObject(i);
+            if (!list.contains(obj.getString(SECTION)) &&!ignored.contains(obj.getString(SECTION))) {
+                array.put(obj);
+                list.add(obj.getString(SECTION));
+            }
+        }
+        return array;
     }
 
     public static JSONArray updateArray(final JSONArray model, final JSONArray array, final List<String> columns) {

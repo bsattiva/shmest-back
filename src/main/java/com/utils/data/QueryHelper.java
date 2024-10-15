@@ -3,10 +3,11 @@ package com.utils.data;
 
 import com.enums.Area;
 import com.utils.AmdsHelper;
+import com.utils.Constants;
 import com.utils.Helper;
 
 import com.utils.TestHelper;
-import com.utils.enums.JsonHelper;
+import com.utils.command.JsonHelper;
 import org.apache.log4j.Logger;
 
 import org.json.JSONArray;
@@ -142,6 +143,7 @@ public class QueryHelper {
     }
 
 
+
     public static List<String> getEnabledAmdsSheets(final String userId) {
         List<String> ids = new ArrayList<>();
         var disabledIds = getAmdsDisabledSheets(userId);
@@ -178,9 +180,7 @@ public class QueryHelper {
        return Helper.decrypt(getData(query, PULL_STRING).getString(MESSAGE), SEED);
     }
 
-    public static void main(String[] args) {
-        getApplicableUsers("6", "philips_mri_competencies");
-    }
+
 
     public static String getPasswordlById(final String id) {
         final var query = "select pass from user.user where name=" + id;
@@ -300,7 +300,31 @@ public class QueryHelper {
             return saved.has(MESSAGE) && saved.getString(MESSAGE).equalsIgnoreCase("success");
     }
 
+    public static boolean setState(final String item, final boolean state) {
+        var status = state ? 1 : 0;
+        final var delQuery = String.format("delete from amds.state where stat='%s'", item);
+        final var query = String.format("insert into amds.state values('%s', %d)", item, status);
+        getData(delQuery, EXECUTE);
+        var resp = getData(query, EXECUTE);
 
+        return resp.has(MESSAGE) && resp.getString(MESSAGE).equals(SUCCESS);
+    }
+
+    public static boolean getState(final String item) {
+        var query = String.format("select is_set from amds.state where stat='%s'", item);
+        var resp = getData(query, PULL_STRING);
+        return resp.has(MESSAGE) && resp.getString(MESSAGE).equals("1");
+    }
+
+    public static List<String> getIgnored() {
+        List<String> ignored = new ArrayList<>();
+        if (getState("ignore")) {
+            var query = "select id from amds.ignored";
+            var list = getData(query, PULL_LIST).getJSONArray(MESSAGE);
+            ignored = JsonHelper.getListFromJsonArray(list);
+        }
+        return ignored;
+    }
 
     public static JSONObject persistSavedPage(final JSONObject page) {
         final String pageName = page.getString("pagename");
@@ -424,27 +448,6 @@ public class QueryHelper {
     }
 
 
-//    public static void main(String[] args) {
-//
-//        System.out.print(getUsers().toString(5));
-//
-//
-//        var users = AmdsHelper.getUsers();
-//        List<String> emails = new ArrayList<>();
-//        for (var user:users) {
-//            if (!emails.contains(user[2].trim())) {
-//                var password = Helper.getRandomString(7);
-//                saveUser(user[0], user[1], user[2], password);
-//                System.out.println(user[0] + "," + user[1] + "," + user[2] + "," + password);
-//                emails.add(user[2].trim());
-//
-//            }
-//
-//
-//        }
-//
-//    }
-
 
     public static JSONObject persistPage(final JSONObject page) {
         final String pageName = page.getString("pageName");
@@ -556,7 +559,54 @@ public class QueryHelper {
     public static JSONArray getUsersByName(final String name) {
         var query
                 = "select section,content from user.profile where element='name' and content like '%" + name + "%'";
+        var arr = getData(query, PULL_TABLE).getJSONArray(MESSAGE);
+        var ignored = QueryHelper.getIgnored();
+        var list = JsonHelper
+                .getListJsonObjects(arr)
+                .stream().filter(obj -> !ignored.contains(obj.getString("section"))).collect(Collectors.toList());
+        return JsonHelper.getArrayFromJsonObjectList(list);
+        //return getData(query, PULL_TABLE).getJSONArray(MESSAGE);
+    }
+
+    public static JSONArray getSheetUsers(final String sheet_name) {
+        var query = "select section,content from user.profile u where exists (select 1 from amds." +
+                AmdsHelper.getTableName(sheet_name)
+                + " where user_id = u.section)";
         return getData(query, PULL_TABLE).getJSONArray(MESSAGE);
+    }
+
+    public static JSONArray getSheetNotUsers(final String sheet_name) {
+        var query = "select section,content from user.profile u where not exists (select 1 from amds." +
+                AmdsHelper.getTableName(sheet_name)
+                + " where user_id = u.section)";
+        return getData(query, PULL_TABLE).getJSONArray(MESSAGE);
+    }
+
+
+    public static JSONArray getUserSheets(final String user_id, final boolean reverse) {
+        var tables = AmdsHelper.getAllTables();
+        var result = new JSONArray();
+        for(var i = 0; i < tables.length(); i++) {
+            var obj = tables.getJSONObject(i);
+            var name = obj.getString("name");
+            if (!reverse) {
+                if (isTableCompleted(name, user_id)) {
+                    result.put(obj);
+                }
+            } else {
+                if (!isTableCompleted(name, user_id)) {
+                    result.put(obj);
+                }
+            }
+        }
+
+        return result;
+    }
+
+
+    public static boolean isTableCompleted(final String table, final String user_id) {
+        var query = "select row_name from amds." + table + " where user_id=" + user_id;
+        return QueryHelper.getData(query, "pull-list").has("message");
     }
 
     public static String getIdByName(final String name){

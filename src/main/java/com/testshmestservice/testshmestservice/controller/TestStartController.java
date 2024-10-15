@@ -13,7 +13,7 @@ import com.utils.TestHelper;
 import com.utils.UsefulBoolean;
 import com.utils.command.CommandRunner;
 import com.utils.data.QueryHelper;
-import com.utils.enums.JsonHelper;
+import com.utils.command.JsonHelper;
 import com.utils.excel.ExcelHelper;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -653,6 +653,122 @@ public class TestStartController {
         var query = AmdsHelper.getSheetQuery(sheetId, userId);
         return QueryHelper.getData(query, PULL_TABLE).toString();
     }
+
+    @GetMapping("/amds_table")
+    String getAmdsTable(final HttpServletRequest request, final HttpServletResponse response) {
+
+        var token = request.getHeader(TOKEN);
+
+        var sheetId = request.getParameter(ID);
+        var result = new JSONObject();
+        var userId = request.getParameter("user_id");
+        if (Helper.isThing(QueryHelper.getIdByToken(token))) {
+            if (QueryHelper.isAdmin(QueryHelper.getIdByToken(token))) {
+                var query = AmdsHelper.getSheetQuery(sheetId, userId);
+                result = QueryHelper.getData(query, PULL_TABLE);
+            } else {
+                response.setStatus(403);
+            }
+        } else {
+            response.setStatus(401);
+        }
+
+        return (result.has("message")) ? result.getJSONArray("message").toString() : result.toString();
+    }
+
+    @GetMapping("/amds_table_stats")
+    String getTableStats(final HttpServletRequest request, final HttpServletResponse response) {
+        var token = request.getHeader(TOKEN);
+        var userId = QueryHelper.getIdByToken(token);
+        var reverse = (Helper.isThing(request.getParameter("reverse"))
+                && request.getParameter("reverse").equals("true"));
+        var result = new JSONArray();
+        if (Helper.isThing(userId)) {
+            if (QueryHelper.isAdmin(userId)) {
+               result = AmdsHelper.getTableStats(reverse);
+            } else {
+                response.setStatus(403);
+
+            }
+
+        } else {
+            response.setStatus(401);
+
+        }
+        return result.toString();
+    }
+
+    @GetMapping("/amds_sheet_users")
+    String getAmdsSheetUsers(final HttpServletRequest request, final HttpServletResponse response) {
+        var token = request.getHeader(TOKEN);
+        var userId = QueryHelper.getIdByToken(token);
+        var sheet_id = request.getParameter("sheet_id");
+        var reverse = request.getParameter("reverse");
+        var result = new JSONArray();
+        if (Helper.isThing(userId)) {
+            if (QueryHelper.isAdmin(userId)) {
+                if (Helper.isThing(reverse) && reverse.equals("true")) {
+                    result = TestHelper.dedupe(QueryHelper.getSheetNotUsers(sheet_id));
+                } else {
+                    result = TestHelper.dedupe(QueryHelper.getSheetUsers(sheet_id));
+                }
+
+            } else {
+                response.setStatus(403);
+
+            }
+
+        } else {
+            response.setStatus(401);
+
+        }
+
+        return result.toString();
+    }
+
+    @GetMapping("/amds_user_sheets")
+    String getAmdsUserSheets(final HttpServletRequest request, final HttpServletResponse response) {
+        var token = request.getHeader(TOKEN);
+        var userId = QueryHelper.getIdByToken(token);
+        var id = (Helper.isThing(request.getParameter("userId"))) ? request.getParameter("userId") : userId;
+        var reverse = request.getParameter("reverse");
+        var all = request.getParameter("all");
+        var result = new JSONArray();
+        if (Helper.isThing(userId)) {
+            if (QueryHelper.isAdmin(userId)) {
+                if (Helper.isThing(all) && all.equals("true")) {
+                    result = AmdsHelper.getAllTables();
+                } else {
+                    result = QueryHelper.getUserSheets(id, (Helper.isThing(reverse) && reverse.equals("true")));
+                }
+
+
+            } else {
+                response.setStatus(403);
+
+            }
+
+        } else {
+            response.setStatus(401);
+
+        }
+        return result.toString();
+    }
+
+    @GetMapping("/amds_set_ignore")
+    String setIgnore(final HttpServletRequest request, final HttpServletResponse response) {
+        if (request.getHeader("secret").equals("Kusaz9dkakwk45th_823haj-aashjgd")) {
+            var state = Helper.isThing(request.getParameter("ignore"))
+                    && request.getParameter("ignore").equals("true");
+            QueryHelper.setState("ignore", state);
+            return new JSONObject(String.format("{'%s':%b}", MESSAGE, QueryHelper.getState("ignore"))).toString();
+        } else {
+            response.setStatus(401);
+        }
+        return new JSONObject().toString();
+    }
+
+
 
     @GetMapping("/amds_users")
     String getAmdsUsers(final HttpServletRequest request, final HttpServletResponse response) {

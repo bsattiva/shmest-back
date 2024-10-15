@@ -2,14 +2,15 @@ package com.utils;
 
 import com.utils.data.HttpClient;
  import com.utils.data.QueryHelper;
-import com.utils.enums.JsonHelper;
+import com.utils.command.JsonHelper;
 import com.utils.excel.DupeList;
 import com.utils.excel.ExcelHelper;
 import com.utils.test.DataSort;
 import org.apache.commons.io.FileUtils;
-import org.apache.poi.hssf.usermodel.DVConstraint;
+
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.xssf.usermodel.XSSFDataValidationConstraint;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -39,6 +40,7 @@ public class AmdsHelper {
 
     public static String getTableName(final String tableId) {
         final String query = "select name from amds.sheets where id='" + tableId + "'";
+        var m = QueryHelper.getData(query, PULL_STRING);
         return normalizeTable(QueryHelper.getData(query, PULL_STRING).getString(MESSAGE));
     }
 
@@ -60,6 +62,7 @@ public class AmdsHelper {
     public static final String QUERY_TEMPLATE_ALL = "select ? from amds.?";
     public static final String SHEET_QUERY_TEMPLATE = "select ? from amds.? where id='?' user_id='?'";
     public static final String CREATE_QUERY_TEMPLATE = "insert into amds.? (?,user_id) values(<q>)";
+    public static final String ALL_SHEETS_QUERY = "select id,name from amds.sheets where id>2";
     public static final String QUESTION_MASK = "\\?";
 
     public static String getSheetQuery(final String sheetId, final String userId) {
@@ -69,6 +72,8 @@ public class AmdsHelper {
                 .replaceFirst(QUESTION_MASK, table)
                 .replaceFirst(QUESTION_MASK, userId);
     }
+
+
 
     public static String getUserIdByEmail(final String email) throws Exception {
         var url = Helper.getUrl("user.url") + "/id-by-email?email=" + email;
@@ -92,7 +97,42 @@ public class AmdsHelper {
         return builder.toString().substring(0, builder.toString().length() - 1);
     }
 
+    public static int validUsers() {
+        var ignored = QueryHelper.getIgnored().size();
+        var users = QueryHelper.getUsers().length();
+        return users - ignored;
+    }
+    public static JSONArray getTableStats(final boolean reverse) {
+        var result = new JSONArray();
+        var tables = getAllTables();
+        for (var i = 0; i < tables.length(); i++) {
+            var users = getNumberOfUsers(tables.getJSONObject(i).getString("name"));
+            var table = new JSONObject();
+            table.put("name", tables.getJSONObject(i).getString("name"));
+            if (!reverse) {
+                table.put("users", users);
+            } else {
 
+                table.put("users", validUsers() - users);
+            }
+
+            result.put(table);
+        }
+        return result;
+    }
+
+    private static int getNumberOfUsers(final String table) {
+        var query = "select user_id from amds.";
+        var rows = QueryHelper.getData(query + table, PULL_LIST).getJSONArray(MESSAGE);
+        List<String> users = new ArrayList<>();
+        for (var i = 0; i < rows.length(); i++) {
+            var user = rows.getString(i);
+            if (!users.contains(user)) {
+                users.add(user);
+            }
+        }
+        return users.size();
+    }
 
     public static String getAdminColumns(final String sheetId) {
         final var query = "select user from amds.sheets where id=" + sheetId;
@@ -720,6 +760,23 @@ public class AmdsHelper {
         var col = column.trim();
         return col.replace(" ", "_");
     }
+
+    public static JSONArray getAllTables() {
+
+        var array = QueryHelper.getData(ALL_SHEETS_QUERY, "pull-table").getJSONArray("message");
+        var result = new JSONArray();
+        for (var i = 0; i < array.length(); i++) {
+            var obj = array.getJSONObject(i);
+            var newObject = new JSONObject();
+            newObject.put("name", normalizeTable(obj.getString("name")));
+            newObject.put("id", obj.getString("id"));
+            result.put(newObject);
+        }
+
+        return result;
+    }
+
+
     public static void createSheetsTables() {
         final String namesQuery = "select name from amds.sheets";
         final String colsQuery = "select properties from amds.sheets";
