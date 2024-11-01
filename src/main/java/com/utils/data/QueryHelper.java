@@ -127,6 +127,14 @@ public class QueryHelper {
         return getData(query, PULL_TABLE);
     }
 
+    public static JSONObject getFieldsModel(final int sheetId) {
+        var query = "select row_fields,ui_fields,user_ui_fields,head from amds.sheets where id=" + sheetId;
+        return getData(query, PULL_TABLE);
+    }
+
+
+
+
     public static List<String> getAmdsDisabledSheets(final String userId) {
 
         var query = "select sheet_id from amds.disabled_sheets where user_id=" + userId;
@@ -163,17 +171,15 @@ public class QueryHelper {
         getData(Helper.completeString(QUESTION_MASK, query,new String[]{project, area, error}), EXECUTE);
     }
 
-    public static JSONObject getProfile(final String token){
+    public static JSONArray getProfile(final String token){
+        var id = getIdByToken(token);
         JSONObject result = Helper.getFailedObject();
-        String url = Helper.getUrl("backend.url") + "name?token=" + token + "&scope=";
-        try {
-            result = HttpClient.sendGet(url,new HashMap<>()).getJSONObject("profile");
-            result.remove("seed");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return result;
+        var query = "select content,element from user.profile where section=" + id;
+        var profile = getData(query, PULL_TABLE);
+        return profile.getJSONArray(MESSAGE);
     }
+
+
 
     public static String getEmailById(final String id) {
        final var query = "select email from user.user where name=" + id;

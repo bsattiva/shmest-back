@@ -20,6 +20,7 @@ import lombok.SneakyThrows;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.log4j.Logger;
+import org.bouncycastle.cert.ocsp.Req;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -279,6 +280,25 @@ public class TestStartController {
             response.setStatus(401);
         }
         return result.toString();
+    }
+
+    @GetMapping("/amds_use_name")
+    String getUserName(final HttpServletRequest request, final HttpServletResponse response) {
+        var result = "";
+
+        if (Helper.isThing(QueryHelper.getIdByToken(request.getHeader(TOKEN)))) {
+            var profile = QueryHelper.getProfile(request.getHeader(TOKEN));
+            for (var i = 0; i < profile.length(); i++) {
+                if (profile.getJSONObject(i).getString("element").equals("name")) {
+                    result = profile.getJSONObject(i).getString("content");
+                    break;
+                }
+            }
+
+        } else {
+            response.setStatus(401);
+        }
+        return result;
     }
 
     @PostMapping("/register")
@@ -651,6 +671,7 @@ public class TestStartController {
             }
         }
         var query = AmdsHelper.getSheetQuery(sheetId, userId);
+
         return QueryHelper.getData(query, PULL_TABLE).toString();
     }
 
@@ -812,7 +833,46 @@ public class TestStartController {
         }
     }
 
-        @PostMapping("/amds-upload")
+
+    @GetMapping("/amds-model")
+    public String get_table_model(final HttpServletRequest request, final HttpServletResponse response) {
+        var result = TestHelper.getStatus("failure");
+        var userId = QueryHelper.getIdByToken(request.getHeader(TOKEN));
+        var id = request.getParameter(ID);
+        if(Helper.isThing(userId)) {
+            var isAdmin = QueryHelper.isAdmin(userId);
+
+            if (Helper.isInteger(id)) {
+                var model = QueryHelper.getRowsModel(Integer.parseInt(id)).getJSONArray(MESSAGE);
+                var fields = QueryHelper.getFieldsModel(Integer.parseInt(id)).getJSONArray(MESSAGE);
+                var col = AmdsHelper.getColumns(id);
+                var userFields = fields.getJSONObject(0).getString("user_ui_fields");
+                var uiFields = fields.getJSONObject(0).getString("ui_fields");
+                var fieldsModel = fields.getJSONObject(0).getString("row_fields");
+                var head = fields.getJSONObject(0).getString("head");
+                var fieldModelObject = new JSONObject(fieldsModel);
+
+                result = new JSONObject();
+                result.put("model", model);
+                result.put("fieldsModel", fieldModelObject);
+                result.put("userFields", userFields);
+                result.put("legacyFields", col);
+                result.put("fields", uiFields);
+                result.put("head", head);
+                result.put("boss", isAdmin);
+                System.out.println(fields.toString(5));
+            } else {
+                response.setStatus(400);
+            }
+
+        } else {
+            response.setStatus(401);
+        }
+
+        return result.toString();
+    }
+
+    @PostMapping("/amds-upload")
     public String uploadFile(Model model, @RequestParam("file") MultipartFile file,
                              HttpServletRequest request, HttpServletResponse response) throws IOException {
         InputStream in = file.getInputStream();
